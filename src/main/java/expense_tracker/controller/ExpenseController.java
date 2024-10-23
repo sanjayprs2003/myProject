@@ -88,7 +88,6 @@ public class ExpenseController {
         Date sdate = (Date)requestBody.get("StartDate");
         Date ldate = (Date)requestBody.get("LastDate");
         List<Map<String, Object>> response = this.service.viewByDate(sdate, ldate);
-        //This is comment
         return ResponseEntity.ok(response);
     }
 
