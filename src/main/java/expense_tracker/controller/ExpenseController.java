@@ -2,6 +2,7 @@ package expense_tracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,29 +41,30 @@ public class ExpenseController {
     @PostMapping("/add-income")
     public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
         try {
-            return service.addIncome(income);
+             service.addIncome(income);
+             return ResponseEntity.status(HttpStatus.CREATED).body("Expenses Added Successfully");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 
-    @PutMapping({"/update-income/{userId}"})
+    @PutMapping("/update-income/{userId}")
     public ResponseEntity<String> updateIncome(@PathVariable("userId") int userId, @RequestBody IncomeModel incomeObj) {
-            try {
-                return service.updateIncome(userId, incomeObj);
-            }
-            catch (IllegalArgumentException e) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-            }
+        try {
+             service.updateIncome(userId, incomeObj);
+             return ResponseEntity.ok("Income Updated Successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
-    @GetMapping({"/view-income"})
+    @GetMapping("/view-income")
     public ResponseEntity<Object> getIncome() {
         List<IncomeModel> view = this.service.getIncome();
         return ResponseEntity.ok(view);
     }
 
-    @PostMapping({"/add-expense"})
+    @PostMapping("/add-expense")
     public ResponseEntity<String> addExpense(@RequestBody Map<String, Object> requestBody) {
        try {
            Object userIdObj = Integer.parseInt(requestBody.get("userId").toString());
@@ -81,7 +83,7 @@ public class ExpenseController {
 
     }
 
-    @PutMapping({"/update-expense/{UserId}"})
+    @PutMapping("/update-expense/{UserId}")
     public ResponseEntity<String> updateExpense(@PathVariable("UserId") int UserId, @RequestBody Map<String, Object> requestBody) {
         try {
             Object userIdObj = Integer.parseInt(requestBody.get("userId").toString());
@@ -104,7 +106,7 @@ public class ExpenseController {
         }
     }
 
-    @DeleteMapping({"/delete-user/{userId}"})
+    @DeleteMapping("/delete-user/{userId}")
     public ResponseEntity<String> deleteExpense(@PathVariable("userId") int userId) {
           try {
               service.deleteIncomeUser(userId);
@@ -117,20 +119,20 @@ public class ExpenseController {
           }
     }
 
-    @GetMapping({"/view-expenses"})
+    @GetMapping("/view-expenses")
     public ResponseEntity<Object> viewAllExpense() {
         List<Map<String, Object>> response = this.service.viewAll();
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping({"/view-by-category"})
+    @GetMapping("/view-by-category")
     public ResponseEntity<Object> viewByCategory(@RequestBody Map<String, String> requestBody) {
         String category = (String)requestBody.get("type");
         List<Map<String, Object>> response = this.service.viewByCategory(category);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping({"/view-by-date"})
+    @GetMapping("/view-by-date")
     public ResponseEntity<Object> viewByDate(@RequestBody Map<String, Date> requestBody) {
         Date sdate = (Date)requestBody.get("StartDate");
         Date ldate = (Date)requestBody.get("LastDate");
@@ -138,10 +140,17 @@ public class ExpenseController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping({"/get-category-report/{userId}"})
+    @GetMapping("/get-category-report/{userId}")
     public ResponseEntity<Map<String, String>> getCategoryReport(@PathVariable("userId") int userId) {
-        Map<String, String> report = this.service.getCategoryReport(userId);
-        return ResponseEntity.ok(report);
+        Map<String, String> response = new HashMap<>();
+       try {
+           Map<String, String> report = this.service.getCategoryReport(userId);
+           return ResponseEntity.ok(report);
+       }
+       catch (IllegalArgumentException e){
+           response.put("Error",e.getMessage());
+           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+       }
     }
 }
 
