@@ -16,38 +16,46 @@ import expense_tracker.repository.IncomeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ExpenseService {
+
     @Autowired
     private IncomeRepository incomeRespo;
     @Autowired
     private ExpensesRepository expenseRespo;
     @Autowired
     private CategoriesRepository categoryRespo;
-    private static final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
+    private  final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
 
-    public ExpenseService() {
-    }
-
-    public void addIncomeService(IncomeModel incomeObj) {
-        if (!this.incomeRespo.existsById(incomeObj.getUserId())) {
-            this.incomeRespo.save(incomeObj);
+    public ResponseEntity<String> addIncome(IncomeModel incomeObj) {
+        if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
+            throw new IllegalArgumentException("Invalid User ID or Income");
+        } else if (!incomeRespo.existsById(incomeObj.getUserId())) {
+            incomeRespo.save(incomeObj);
             logger.info("Income Added Successfully");
+            return ResponseEntity.status(HttpStatus.CREATED).body("Income Added Successfully");
         } else {
-            logger.error("UserId Already Exist Please Try Update");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("User ID Already Exists");
         }
-
     }
 
-    public void updateIncomeService(int userId, IncomeModel incomeObj) {
-        if (this.incomeRespo.existsById(userId)) {
+    public ResponseEntity<String> updateIncome(int userId, IncomeModel incomeObj) {
+        if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
+            throw new IllegalArgumentException("Invalid User ID or Income");
+        }
+        else if (this.incomeRespo.existsById(userId) && incomeObj.getUserId() == userId) {
             this.incomeRespo.save(incomeObj);
             logger.info("Income Updated Successfully");
+            return ResponseEntity.ok("Income Updated Successfully");
         } else {
             logger.error("User Not Found");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Given Details Does Not Exist");
         }
+
 
     }
 
@@ -55,37 +63,42 @@ public class ExpenseService {
         return this.incomeRespo.findAll();
     }
 
-    public void addExpense(ExpensesModel expenseObj) {
-        if (expenseObj != null) {
-            if (!this.expenseRespo.existsByUserIdAndCategoryId(expenseObj.getUserId(), expenseObj.getCategoryId())) {
-                this.expenseRespo.save(expenseObj);
-                logger.info("Expenses Added Successfully");
-            } else {
-                logger.error("User Details Already Exist Please Try Update");
-            }
-        } else {
-            logger.error("Given Details Not Valid");
+    public boolean addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
+        if (expenseObj == null  || userId <= 0 || categoryId <= 0) {
+            throw new IllegalArgumentException("Invalid Details");
         }
-
+        else if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+            expenseObj.setUserId(userId);
+            expenseObj.setCategoryId(categoryId);
+            this.expenseRespo.save(expenseObj);
+            logger.info("Expenses Added Successfully");
+            return true;
+        } else {
+            logger.error("User Details Already Exist Please Try Update");
+            throw new IllegalArgumentException("Already Exist");
+        }
     }
 
-    public void addCategory(CategoriesModel categoryObj) {
-        if (categoryObj != null) {
-            if (!this.categoryRespo.existsByUserIdAndCategoryId(categoryObj.getUserId(), categoryObj.getCategoryId())) {
-                this.categoryRespo.save(categoryObj);
-                logger.info("Expenses Added Successfully");
-            } else {
-                logger.error("User Details Already Exist Please Try Update");
-            }
-        } else {
-            logger.error("Given Details Not Valid");
+    public void addCategory(int userId, int categoryId, CategoriesModel categoryObj) {
+        if (categoryObj == null || userId <= 0 || categoryId <= 0) {
+            throw new IllegalArgumentException("Invalid Details");
         }
-
+        else if (!this.categoryRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+            categoryObj.setUserId(userId);
+            categoryObj.setCategoryId(categoryId);
+            this.categoryRespo.save(categoryObj);
+            logger.info("categories Added Successfully");
+        } else {
+            logger.error("User Details Already Exist Please Try Update");
+            throw new IllegalArgumentException("Already Exist");
+        }
     }
 
-    public void updateExpense(int userId, ExpensesModel expenseObj) {
-        if (expenseObj != null) {
-            ExpensesModel existingExpense = this.expenseRespo.findByUserIdAndCategoryId(userId, expenseObj.getCategoryId());
+    public void updateExpense(int userId, int categoryId, ExpensesModel expenseObj) {
+        if (expenseObj == null || userId <= 0 || categoryId <= 0) {
+            throw new IllegalArgumentException("Invalid Details");
+        }
+        ExpensesModel existingExpense = this.expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
             if (existingExpense != null) {
                 existingExpense.setAmount(expenseObj.getAmount());
                 existingExpense.setDescription(expenseObj.getDescription());
@@ -93,16 +106,15 @@ public class ExpenseService {
                 this.expenseRespo.save(existingExpense);
             } else {
                 logger.error("Given ID Does Not Exist");
+                throw new IllegalArgumentException("Given ID Does Not Exist");
             }
-        } else {
-            logger.error("Given Details Not Valid");
         }
 
-    }
-
-    public void updateCategories(int userId, CategoriesModel categoryObj) {
-        if (categoryObj != null) {
-            CategoriesModel existingCategory = this.categoryRespo.findByUserIdAndCategoryId(userId, categoryObj.getCategoryId());
+    public void updateCategories(int userId, int categoryId, CategoriesModel categoryObj) {
+         if (categoryObj == null || userId <= 0 || categoryId <= 0) {
+                throw new IllegalArgumentException("Invalid Details");
+         }
+         CategoriesModel existingCategory = this.categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
             if (existingCategory != null) {
                 existingCategory.setName(categoryObj.getName());
                 existingCategory.setType(categoryObj.getType());
@@ -110,20 +122,18 @@ public class ExpenseService {
                 logger.info("Category Added Successfully");
             } else {
                 logger.error("Given ID Does Not Exist");
+                throw new IllegalArgumentException("Given ID Does Not Exist");
             }
-        } else {
-            logger.error("Given Credientials Not Valid");
         }
 
-    }
-
     public void deleteIncomeUser(int userId) {
-        IncomeModel income = this.incomeRespo.findByUserId(userId);
+        IncomeModel income = incomeRespo.findByUserId(userId);
         if (income != null) {
-            this.incomeRespo.delete(income);
+            incomeRespo.delete(income);
             logger.info("UserId Deleted Successfully");
         } else {
             logger.error("Check the Given UserId");
+            throw new IllegalArgumentException("Check The Details");
         }
 
     }
@@ -140,6 +150,7 @@ public class ExpenseService {
             }
         } else {
             logger.error("Check the Given UserId");
+            throw new IllegalArgumentException("Check The Details");
         }
 
     }
@@ -156,6 +167,7 @@ public class ExpenseService {
             }
         } else {
             logger.error("Check the Given UserId");
+            throw new IllegalArgumentException("Check The Details");
         }
 
     }
@@ -280,4 +292,6 @@ public class ExpenseService {
 
         return response;
     }
+
 }
+

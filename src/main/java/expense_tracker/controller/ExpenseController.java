@@ -9,7 +9,11 @@ import expense_tracker.model.CategoriesModel;
 import expense_tracker.model.ExpensesModel;
 import expense_tracker.model.IncomeModel;
 import expense_tracker.service.ExpenseService;
+import org.apache.coyote.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,17 +32,28 @@ public class ExpenseController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    private static final Logger logger = LoggerFactory.getLogger(ExpenseController.class);
+
     public ExpenseController() {
     }
 
-    @PostMapping({"/add-income"})
-    public void addIncome(@RequestBody IncomeModel income) {
-        this.service.addIncomeService(income);
+    @PostMapping("/add-income")
+    public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
+        try {
+            return service.addIncome(income);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PutMapping({"/update-income/{userId}"})
-    public void updateIncome(@PathVariable("userId") int userId, @RequestBody IncomeModel incomeObj) {
-        this.service.updateIncomeService(userId, incomeObj);
+    public ResponseEntity<String> updateIncome(@PathVariable("userId") int userId, @RequestBody IncomeModel incomeObj) {
+            try {
+                return service.updateIncome(userId, incomeObj);
+            }
+            catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            }
     }
 
     @GetMapping({"/view-income"})
@@ -48,26 +63,58 @@ public class ExpenseController {
     }
 
     @PostMapping({"/add-expense"})
-    public void addExpense(@RequestBody Map<String, Object> requestBody) {
-        ExpensesModel expenseObj = (ExpensesModel)this.objectMapper.convertValue(requestBody.get("expenses"), ExpensesModel.class);
-        CategoriesModel categoryObj = (CategoriesModel)this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
-        this.service.addCategory(categoryObj);
-        this.service.addExpense(expenseObj);
+    public ResponseEntity<String> addExpense(@RequestBody Map<String, Object> requestBody) {
+       try {
+           Object userIdObj = Integer.parseInt(requestBody.get("userId").toString());
+           Object categoryIdObj = Integer.parseInt(requestBody.get("categoryId").toString());
+           int userId = ((Number) userIdObj).intValue();
+           int categoryId = ((Number) categoryIdObj).intValue();
+           ExpensesModel expenseObj = (ExpensesModel)this.objectMapper.convertValue(requestBody.get("expenses"), ExpensesModel.class);
+           CategoriesModel categoryObj = (CategoriesModel)this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
+           this.service.addExpense(userId, categoryId, expenseObj);
+           this.service.addCategory(userId, categoryId, categoryObj);
+               return ResponseEntity.status(HttpStatus.CREATED).body("Expenses Added Successfully");
+           }
+       catch (IllegalArgumentException e){
+           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+       }
+
     }
 
-    @PutMapping({"/update-expense/{userId}"})
-    public void updateExpense(@PathVariable("userId") int userId, @RequestBody Map<String, Object> requestBody) {
-        ExpensesModel expenseObj = (ExpensesModel)this.objectMapper.convertValue(requestBody.get("expenses"), ExpensesModel.class);
-        CategoriesModel categoryObj = (CategoriesModel)this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
-        this.service.updateExpense(userId, expenseObj);
-        this.service.updateCategories(userId, categoryObj);
+    @PutMapping({"/update-expense/{UserId}"})
+    public ResponseEntity<String> updateExpense(@PathVariable("UserId") int UserId, @RequestBody Map<String, Object> requestBody) {
+        try {
+            Object userIdObj = Integer.parseInt(requestBody.get("userId").toString());
+            Object categoryIdObj = Integer.parseInt(requestBody.get("categoryId").toString());
+            int userId = ((Number) userIdObj).intValue();
+            int categoryId = ((Number) categoryIdObj).intValue();
+            if(userId == UserId) {
+                ExpensesModel expenseObj = (ExpensesModel) this.objectMapper.convertValue(requestBody.get("expenses"), ExpensesModel.class);
+                CategoriesModel categoryObj = (CategoriesModel) this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
+                this.service.updateExpense(userId, categoryId, expenseObj);
+                this.service.updateCategories(userId, categoryId,  categoryObj);
+                return ResponseEntity.ok("Updated Successfully");
+            }
+            else {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Check The Details");
+            }
+        }
+        catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @DeleteMapping({"/delete-user/{userId}"})
-    public void deleteExpense(@PathVariable("userId") int userId) {
-        this.service.deleteIncomeUser(userId);
-        this.service.deleteExpenseUser(userId);
-        this.service.deleteCategoriesUser(userId);
+    public ResponseEntity<String> deleteExpense(@PathVariable("userId") int userId) {
+          try {
+              service.deleteIncomeUser(userId);
+              service.deleteExpenseUser(userId);
+              service.deleteCategoriesUser(userId);
+              return ResponseEntity.ok("Deleted Successfully");
+          }
+          catch (IllegalArgumentException e) {
+              return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+          }
     }
 
     @GetMapping({"/view-expenses"})
