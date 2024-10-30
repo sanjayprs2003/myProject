@@ -16,17 +16,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping({"/api/expenses"})
+@CrossOrigin(origins = "http://localhost:5500")
+
 public class ExpenseController {
     @Autowired
     private ExpenseService service;
@@ -42,9 +37,9 @@ public class ExpenseController {
     public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
         try {
              service.addIncome(income);
-             return ResponseEntity.status(HttpStatus.CREATED).body("Expenses Added Successfully");
+             return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"Income Added Successfully\"}");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
     }
 
@@ -52,16 +47,22 @@ public class ExpenseController {
     public ResponseEntity<String> updateIncome(@PathVariable("userId") int userId, @RequestBody IncomeModel incomeObj) {
         try {
              service.updateIncome(userId, incomeObj);
-             return ResponseEntity.ok("Income Updated Successfully");
+             return ResponseEntity.ok("{\"message\": \"Income Updated Successfully\"}");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
     }
 
-    @GetMapping("/view-income")
-    public ResponseEntity<Object> getIncome() {
-        List<IncomeModel> view = this.service.getIncome();
+    @GetMapping("/view-income/{userId}")
+    public ResponseEntity<Object> getIncome(@PathVariable("userId") int userId) {
+        IncomeModel view = this.service.getIncome(userId);
         return ResponseEntity.ok(view);
+    }
+
+    @GetMapping("/view-expense/{userid}")
+    public ResponseEntity<Object> getExpense(@PathVariable("userid") int userid) {
+        List<Map<String, Object>> result = service.getExpense(userid);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/add-expense")
@@ -126,8 +127,7 @@ public class ExpenseController {
     }
 
     @GetMapping("/view-by-category")
-    public ResponseEntity<Object> viewByCategory(@RequestBody Map<String, String> requestBody) {
-        String category = (String)requestBody.get("type");
+    public ResponseEntity<Object> viewByCategory(@RequestParam String category) {
         List<Map<String, Object>> response = this.service.viewByCategory(category);
         return ResponseEntity.ok(response);
     }

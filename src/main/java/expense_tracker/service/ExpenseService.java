@@ -56,8 +56,9 @@ public class ExpenseService {
 
     }
 
-    public List<IncomeModel> getIncome() {
-        return incomeRespo.findAll();
+    public IncomeModel getIncome(int userid) {
+        IncomeModel response = incomeRespo.findByUserId(userid);
+        return response;
     }
 
     public void addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
@@ -91,7 +92,7 @@ public class ExpenseService {
     }
 
     public void updateExpense(int userId, int categoryId, ExpensesModel expenseObj) {
-        if (expenseObj == null || userId <= 0 || categoryId <= 0) {
+        if (expenseObj == null || userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <=0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
             throw new IllegalArgumentException("Invalid Details");
         }
         ExpensesModel existingExpense = expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
@@ -107,7 +108,7 @@ public class ExpenseService {
         }
 
     public void updateCategories(int userId, int categoryId, CategoriesModel categoryObj) {
-         if (categoryObj == null || userId <= 0 || categoryId <= 0) {
+         if (categoryObj == null || userId <= 0 || categoryId <= 0 || categoryObj.getName() == null || categoryObj.getType() == null) {
                 throw new IllegalArgumentException("Invalid Details");
          }
          CategoriesModel existingCategory = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
@@ -292,5 +293,31 @@ public class ExpenseService {
         return response;
     }
 
+    public List<Map<String, Object>> getExpense(int userid) {
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+
+        for(ExpensesModel expense : expenses) {
+
+           CategoriesModel category = categoryRespo.findById(expense.getId());
+
+           Map<String, Object> response = new LinkedHashMap<>();
+
+           response.put("id", expense.getId());
+           response.put("userid", expense.getUserId());
+           response.put("categoryid", expense.getCategoryId());
+           response.put("amount", expense.getAmount());
+           response.put("name", category.getName());
+           response.put("description", expense.getDescription());
+           response.put("type", category.getType());
+           response.put("date", expense.getDate());
+           result.add(response);
+        }
+
+        return result;
+
+    }
 }
 

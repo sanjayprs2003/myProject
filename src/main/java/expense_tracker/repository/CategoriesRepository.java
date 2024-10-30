@@ -10,6 +10,8 @@ import org.springframework.stereotype.Repository;
 public interface CategoriesRepository extends JpaRepository<CategoriesModel, Integer> {
     boolean existsByUserIdAndCategoryId(int userId, int categoryId);
 
+    CategoriesModel findById(int id);
+
     CategoriesModel findByUserIdAndCategoryId(int userId, int categoryId);
 
     List<CategoriesModel> findByUserId(int userId);
