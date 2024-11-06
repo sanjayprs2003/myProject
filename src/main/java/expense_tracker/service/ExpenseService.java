@@ -1,11 +1,7 @@
 package expense_tracker.service;
 
 import java.sql.Date;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import expense_tracker.model.CategoriesModel;
 import expense_tracker.model.ExpensesModel;
@@ -42,7 +38,7 @@ public class ExpenseService {
     }
 
     public void updateIncome(int userId, IncomeModel incomeObj) {
-        if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
+        if (userId <= 0 || incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
             throw new IllegalArgumentException("Invalid User ID or Income");
         }
         else if (this.incomeRespo.existsById(userId) && incomeObj.getUserId() == userId) {
@@ -52,17 +48,21 @@ public class ExpenseService {
             logger.error("User Not Found");
             throw new IllegalArgumentException("User Details Does Not Exist");
         }
-
-
     }
 
     public IncomeModel getIncome(int userid) {
-        IncomeModel response = incomeRespo.findByUserId(userid);
-        return response;
+       Optional<IncomeModel> incomeOptional = incomeRespo.findByUserId(userid);
+       if(incomeOptional.isPresent()){
+           return incomeOptional.get();
+       }
+       else {
+           throw new IllegalArgumentException("User ID Does Not Exist");
+       }
     }
 
+
     public void addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
-        if (userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <=0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
+        if (expenseObj.toString() == null || userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <=0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
             throw new IllegalArgumentException("Invalid Details");
         }
         else if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
@@ -72,7 +72,7 @@ public class ExpenseService {
             logger.info("Expenses Added Successfully");
         } else {
             logger.error("User Details Already Exist Please Try Update");
-            throw new IllegalArgumentException("Already Exist");
+            throw new IllegalArgumentException("Given ID Details Already Exist");
         }
     }
 
@@ -124,8 +124,9 @@ public class ExpenseService {
         }
 
     public void deleteIncomeUser(int userId) {
-        IncomeModel income = incomeRespo.findByUserId(userId);
-        if (income != null) {
+        Optional<IncomeModel> incomeOptional = incomeRespo.findByUserId(userId);
+        if (incomeOptional.isPresent()) {
+            IncomeModel income = incomeOptional.get();
             incomeRespo.delete(income);
             logger.info("UserId Deleted Successfully");
         } else {

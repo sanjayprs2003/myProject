@@ -55,8 +55,13 @@ public class ExpenseController {
 
     @GetMapping("/view-income/{userId}")
     public ResponseEntity<Object> getIncome(@PathVariable("userId") int userId) {
-        IncomeModel view = this.service.getIncome(userId);
-        return ResponseEntity.ok(view);
+       try{
+           IncomeModel view = this.service.getIncome(userId);
+           return ResponseEntity.ok(view);
+       }
+       catch (IllegalArgumentException e){
+           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
+       }
     }
 
     @GetMapping("/view-expense/{userid}")
@@ -76,10 +81,10 @@ public class ExpenseController {
            CategoriesModel categoryObj = (CategoriesModel)this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
            this.service.addExpense(userId, categoryId, expenseObj);
            this.service.addCategory(userId, categoryId, categoryObj);
-               return ResponseEntity.status(HttpStatus.CREATED).body("Expenses Added Successfully");
+               return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"Expenses Added Successfully\"}");
            }
        catch (IllegalArgumentException e){
-           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+           return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
        }
 
     }
@@ -96,14 +101,14 @@ public class ExpenseController {
                 CategoriesModel categoryObj = (CategoriesModel) this.objectMapper.convertValue(requestBody.get("category"), CategoriesModel.class);
                 this.service.updateExpense(userId, categoryId, expenseObj);
                 this.service.updateCategories(userId, categoryId,  categoryObj);
-                return ResponseEntity.ok("Updated Successfully");
+                return ResponseEntity.ok("{\"message\": \"Updated Successfully\"}");
             }
             else {
-                return ResponseEntity.status(HttpStatus.CONFLICT).body("Check The Details");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("{\"message\": \"" + "Check The Details" + "\"}");
             }
         }
         catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
     }
 
@@ -113,10 +118,10 @@ public class ExpenseController {
               service.deleteIncomeUser(userId);
               service.deleteExpenseUser(userId);
               service.deleteCategoriesUser(userId);
-              return ResponseEntity.ok("Deleted Successfully");
+              return ResponseEntity.ok("{\"message\": \"Deleted Successfully\"}");
           }
           catch (IllegalArgumentException e) {
-              return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+              return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
           }
     }
 
@@ -133,9 +138,7 @@ public class ExpenseController {
     }
 
     @GetMapping("/view-by-date")
-    public ResponseEntity<Object> viewByDate(@RequestBody Map<String, Date> requestBody) {
-        Date sdate = (Date)requestBody.get("StartDate");
-        Date ldate = (Date)requestBody.get("LastDate");
+    public ResponseEntity<Object> viewByDate(@RequestParam Date sdate, @RequestParam Date ldate) {
         List<Map<String, Object>> response = this.service.viewByDate(sdate, ldate);
         return ResponseEntity.ok(response);
     }
