@@ -5,10 +5,12 @@ import java.sql.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import expense_tracker.model.CategoriesModel;
 import expense_tracker.model.ExpensesModel;
 import expense_tracker.model.IncomeModel;
+import expense_tracker.model.LoginModel;
 import expense_tracker.service.ExpenseService;
 import org.apache.coyote.Response;
 import org.slf4j.Logger;
@@ -31,6 +33,17 @@ public class ExpenseController {
     private static final Logger logger = LoggerFactory.getLogger(ExpenseController.class);
 
     public ExpenseController() {
+    }
+
+    @PostMapping("/add-user")
+    public ResponseEntity<String> addUser(@RequestBody LoginModel login) {
+        try{
+            service.addUser(login);
+            return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"User Added Successfully\"}");
+        }
+        catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
+        }
     }
 
     @PostMapping("/add-income")
@@ -129,6 +142,12 @@ public class ExpenseController {
     public ResponseEntity<Object> viewAllExpense() {
         List<Map<String, Object>> response = this.service.viewAll();
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/view-category")
+    public ResponseEntity<Object> viewCategory() {
+        Set<String> result = service.getCategory();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/view-by-category")

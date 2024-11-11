@@ -1,0 +1,15 @@
+package expense_tracker.repository;
+
+import expense_tracker.model.LoginModel;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface LoginRepository extends JpaRepository<LoginModel, Integer> {
+
+    boolean existsByUsername(String username);  // Fixed the typo from "exits" to "exists"
+
+    Optional<LoginModel> findByUsername(String username);
+}

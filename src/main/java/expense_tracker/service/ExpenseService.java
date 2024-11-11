@@ -6,12 +6,15 @@ import java.util.*;
 import expense_tracker.model.CategoriesModel;
 import expense_tracker.model.ExpensesModel;
 import expense_tracker.model.IncomeModel;
+import expense_tracker.model.LoginModel;
 import expense_tracker.repository.CategoriesRepository;
 import expense_tracker.repository.ExpensesRepository;
 import expense_tracker.repository.IncomeRepository;
+import expense_tracker.repository.LoginRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +26,8 @@ public class ExpenseService {
     private ExpensesRepository expenseRespo;
     @Autowired
     private CategoriesRepository categoryRespo;
+    @Autowired
+    private LoginRepository loginRespo;
 
     private  final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
 
@@ -62,17 +67,23 @@ public class ExpenseService {
 
 
     public void addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
-        if (expenseObj.toString() == null || userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <=0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
+        if (userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <=0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
             throw new IllegalArgumentException("Invalid Details");
         }
-        else if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
-            expenseObj.setUserId(userId);
-            expenseObj.setCategoryId(categoryId);
-            expenseRespo.save(expenseObj);
-            logger.info("Expenses Added Successfully");
-        } else {
-            logger.error("User Details Already Exist Please Try Update");
-            throw new IllegalArgumentException("Given ID Details Already Exist");
+        else if(incomeRespo.existsById(userId)){
+             if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+                expenseObj.setUserId(userId);
+                expenseObj.setCategoryId(categoryId);
+                expenseRespo.save(expenseObj);
+                logger.info("Expenses Added Successfully");
+            } else {
+                logger.error("User Details Already Exist Please Try Update");
+                throw new IllegalArgumentException("Given ID Details Already Exist");
+            }
+        }
+        else{
+            logger.error("User Id Not Exist In Income Please Try Update");
+            throw new IllegalArgumentException("Give The User Income First");
         }
     }
 
@@ -204,6 +215,15 @@ public class ExpenseService {
         return response;
     }
 
+    public Set<String> getCategory() {
+        List<CategoriesModel> categories = categoryRespo.findAll();
+        Set<String> result = new LinkedHashSet<>();
+        for(CategoriesModel category : categories) {
+            result.add(category.getType());
+        }
+        return result;
+    }
+
     public List<Map<String, Object>> viewByCategory(String type) {
         List<Map<String, Object>> response = new ArrayList();
         List<ExpensesModel> expenses = expenseRespo.findAll();
@@ -319,6 +339,15 @@ public class ExpenseService {
 
         return result;
 
+    }
+
+    public void addUser(LoginModel login) {
+        if(!loginRespo.existsByUsername(login.getUsername())){
+            loginRespo.save(login);
+        }
+        else {
+            throw new IllegalArgumentException("Given Username Already Exist");
+        }
     }
 }
 
