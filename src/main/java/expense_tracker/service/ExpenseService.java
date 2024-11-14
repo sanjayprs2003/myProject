@@ -14,7 +14,6 @@ import expense_tracker.repository.LoginRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,24 +33,9 @@ public class ExpenseService {
     public void addIncome(IncomeModel incomeObj) {
         if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
             throw new IllegalArgumentException("Invalid User ID or Income");
-        } else if (!incomeRespo.existsById(incomeObj.getUserId())) {
+        } else {
             incomeRespo.save(incomeObj);
             logger.info("Income Added Successfully");
-        } else {
-            throw new IllegalArgumentException("User ID Already Exist");
-        }
-    }
-
-    public void updateIncome(int userId, IncomeModel incomeObj) {
-        if (userId <= 0 || incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
-            throw new IllegalArgumentException("Invalid User ID or Income");
-        }
-        else if (this.incomeRespo.existsById(userId) && incomeObj.getUserId() == userId) {
-            incomeRespo.save(incomeObj);
-            logger.info("Income Updated Successfully");
-        } else {
-            logger.error("User Not Found");
-            throw new IllegalArgumentException("User Details Does Not Exist");
         }
     }
 
@@ -134,29 +118,10 @@ public class ExpenseService {
             }
         }
 
-    public void deleteIncomeUser(int userId) {
-        Optional<IncomeModel> incomeOptional = incomeRespo.findByUserId(userId);
-        if (incomeOptional.isPresent()) {
-            IncomeModel income = incomeOptional.get();
-            incomeRespo.delete(income);
-            logger.info("UserId Deleted Successfully");
-        } else {
-            logger.error("Check the Given UserId");
-            throw new IllegalArgumentException("Check The Income UserId Details");
-        }
-
-    }
-
-    public void deleteExpenseUser(int userId) {
-        List<ExpensesModel> deleteExpenses = expenseRespo.findByUserId(userId);
+    public void deleteExpenseUser(int userId, int categoryId) {
+        ExpensesModel deleteExpenses = expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
         if (deleteExpenses != null) {
-            Iterator  iterator = deleteExpenses.iterator();
-
-            while(iterator.hasNext()) {
-                ExpensesModel deleteExpense = (ExpensesModel)iterator.next();
-                expenseRespo.delete(deleteExpense);
-                logger.info("Expense UserId Deleted Successfully");
-            }
+            expenseRespo.delete(deleteExpenses);
         } else {
             logger.error("Check the Given UserId");
             throw new IllegalArgumentException("Check The Details");
@@ -164,16 +129,10 @@ public class ExpenseService {
 
     }
 
-    public void deleteCategoriesUser(int userId) {
-        List<CategoriesModel> deleteCategories = categoryRespo.findByUserId(userId);
+    public void deleteCategoriesUser(int userId, int categoryId) {
+        CategoriesModel deleteCategories = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
         if (deleteCategories != null) {
-            Iterator iterator = deleteCategories.iterator();
-
-            while(iterator.hasNext()) {
-                CategoriesModel deleteCategory = (CategoriesModel)iterator.next();
-                categoryRespo.delete(deleteCategory);
-                logger.info("Categories UserId Deleted Successfully");
-            }
+           categoryRespo.delete(deleteCategories);
         } else {
             logger.error("Check the Given UserId");
             throw new IllegalArgumentException("Check The Details");
@@ -215,8 +174,8 @@ public class ExpenseService {
         return response;
     }
 
-    public Set<String> getCategory() {
-        List<CategoriesModel> categories = categoryRespo.findAll();
+    public Set<String> getCategory(int userid) {
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
         Set<String> result = new LinkedHashSet<>();
         for(CategoriesModel category : categories) {
             result.add(category.getType());
@@ -224,10 +183,10 @@ public class ExpenseService {
         return result;
     }
 
-    public List<Map<String, Object>> viewByCategory(String type) {
+    public List<Map<String, Object>> viewByCategory(int userid, String type) {
         List<Map<String, Object>> response = new ArrayList();
-        List<ExpensesModel> expenses = expenseRespo.findAll();
-        List<CategoriesModel> categories = categoryRespo.findAll();
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
         Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
         Iterator iterator = categories.iterator();
 
@@ -258,10 +217,10 @@ public class ExpenseService {
         return response;
     }
 
-    public List<Map<String, Object>> viewByDate(Date sdate, Date ldate) {
+    public List<Map<String, Object>> viewByDate(int userid, Date sdate, Date ldate) {
         List<Map<String, Object>> response = new ArrayList();
-        List<ExpensesModel> expenses = expenseRespo.findAll();
-        List<CategoriesModel> categories = categoryRespo.findAll();
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
         Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
         Iterator iterator = categories.iterator();
 
@@ -277,7 +236,6 @@ public class ExpenseService {
             CategoriesModel category = (CategoriesModel)categoryMap.get(expense.getId());
             if (category != null && !expense.getDate().before(sdate) && !expense.getDate().after(ldate)) {
                 Map<String, Object> resultData = new LinkedHashMap();
-                resultData.put("id", expense.getId());
                 resultData.put("userId", expense.getUserId());
                 resultData.put("categoryId", expense.getCategoryId());
                 resultData.put("amount", expense.getAmount());
@@ -348,6 +306,10 @@ public class ExpenseService {
         else {
             throw new IllegalArgumentException("Given Username Already Exist");
         }
+    }
+
+    public LoginModel checkUser(LoginModel login) {
+        return loginRespo.findByUsernameAndPassword(login.getUsername(), login.getPassword());
     }
 }
 

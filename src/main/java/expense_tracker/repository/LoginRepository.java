@@ -11,5 +11,5 @@ public interface LoginRepository extends JpaRepository<LoginModel, Integer> {
 
     boolean existsByUsername(String username);  // Fixed the typo from "exits" to "exists"
 
-    Optional<LoginModel> findByUsername(String username);
+    LoginModel findByUsernameAndPassword(String username, String password);
 }

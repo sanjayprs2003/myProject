@@ -2,17 +2,13 @@ package expense_tracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import expense_tracker.model.CategoriesModel;
 import expense_tracker.model.ExpensesModel;
 import expense_tracker.model.IncomeModel;
 import expense_tracker.model.LoginModel;
 import expense_tracker.service.ExpenseService;
-import org.apache.coyote.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,21 +42,28 @@ public class ExpenseController {
         }
     }
 
-    @PostMapping("/add-income")
-    public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
+    @PostMapping("/login")
+    public ResponseEntity<Object> login(@RequestBody LoginModel login) {
         try {
-             service.addIncome(income);
-             return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"Income Added Successfully\"}");
+            LoginModel result = service.checkUser(login);
+
+            if (result != null) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("{\"message\": \"Invalid username or password\"}");
+            }
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
     }
 
-    @PutMapping("/update-income/{userId}")
-    public ResponseEntity<String> updateIncome(@PathVariable("userId") int userId, @RequestBody IncomeModel incomeObj) {
+
+    @PostMapping("/add-income")
+    public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
         try {
-             service.updateIncome(userId, incomeObj);
-             return ResponseEntity.ok("{\"message\": \"Income Updated Successfully\"}");
+             service.addIncome(income);
+             return ResponseEntity.status(HttpStatus.CREATED).body("{\"message\": \"Income Added Successfully\"}");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
@@ -125,12 +128,11 @@ public class ExpenseController {
         }
     }
 
-    @DeleteMapping("/delete-user/{userId}")
-    public ResponseEntity<String> deleteExpense(@PathVariable("userId") int userId) {
+    @DeleteMapping("/delete-user/{userid}")
+    public ResponseEntity<String> deleteExpense(@PathVariable("userid") int userId, @RequestParam("categoryid") int categoryid) {
           try {
-              service.deleteIncomeUser(userId);
-              service.deleteExpenseUser(userId);
-              service.deleteCategoriesUser(userId);
+              service.deleteExpenseUser(userId, categoryid);
+              service.deleteCategoriesUser(userId, categoryid);
               return ResponseEntity.ok("{\"message\": \"Deleted Successfully\"}");
           }
           catch (IllegalArgumentException e) {
@@ -144,21 +146,21 @@ public class ExpenseController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/view-category")
-    public ResponseEntity<Object> viewCategory() {
-        Set<String> result = service.getCategory();
+    @GetMapping("/view-category/{userid}")
+    public ResponseEntity<Object> viewCategory(@PathVariable("userid") int userid) {
+        Set<String> result = service.getCategory(userid);
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/view-by-category")
-    public ResponseEntity<Object> viewByCategory(@RequestParam String category) {
-        List<Map<String, Object>> response = this.service.viewByCategory(category);
+    @GetMapping("/view-by-category/{userid}")
+    public ResponseEntity<Object> viewByCategory(@PathVariable("userid") int userid, @RequestParam String category) {
+        List<Map<String, Object>> response = this.service.viewByCategory(userid, category);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/view-by-date")
-    public ResponseEntity<Object> viewByDate(@RequestParam Date sdate, @RequestParam Date ldate) {
-        List<Map<String, Object>> response = this.service.viewByDate(sdate, ldate);
+    @GetMapping("/view-by-date/{userid}")
+    public ResponseEntity<Object> viewByDate(@PathVariable("userid") int userid, @RequestParam Date sdate, @RequestParam Date ldate) {
+        List<Map<String, Object>> response = this.service.viewByDate(userid, sdate, ldate);
         return ResponseEntity.ok(response);
     }
 
