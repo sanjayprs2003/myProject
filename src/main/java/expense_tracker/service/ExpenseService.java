@@ -11,9 +11,11 @@ import expense_tracker.repository.CategoriesRepository;
 import expense_tracker.repository.ExpensesRepository;
 import expense_tracker.repository.IncomeRepository;
 import expense_tracker.repository.LoginRepository;
+import expense_tracker.utility.SecurityConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,8 +29,15 @@ public class ExpenseService {
     private CategoriesRepository categoryRespo;
     @Autowired
     private LoginRepository loginRespo;
+    @Autowired
+    private final PasswordEncoder passwordEncoder;
+
 
     private  final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
+
+    public ExpenseService(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public void addIncome(IncomeModel incomeObj) {
         if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
@@ -45,7 +54,7 @@ public class ExpenseService {
            return incomeOptional.get();
        }
        else {
-           throw new IllegalArgumentException("User ID Does Not Exist");
+           throw new IllegalArgumentException("Give Income");
        }
     }
 
@@ -301,7 +310,9 @@ public class ExpenseService {
 
     public void addUser(LoginModel login) {
         if(!loginRespo.existsByUsername(login.getUsername())){
-            loginRespo.save(login);
+           String password = passwordEncoder.encode(login.getPassword());
+           login.setPassword(password);
+           loginRespo.save(login);
         }
         else {
             throw new IllegalArgumentException("Given Username Already Exist");
@@ -309,7 +320,18 @@ public class ExpenseService {
     }
 
     public LoginModel checkUser(LoginModel login) {
-        return loginRespo.findByUsernameAndPassword(login.getUsername(), login.getPassword());
+        LoginModel storedUser = loginRespo.findByUsername(login.getUsername());
+
+        if (storedUser != null) {
+
+            boolean passwordMatches = passwordEncoder.matches(login.getPassword(), storedUser.getPassword());
+
+            if (passwordMatches) {
+                return storedUser;
+            }
+        }
+
+        throw new IllegalArgumentException("Invalid username or password");
     }
 }
 

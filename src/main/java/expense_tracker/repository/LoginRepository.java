@@ -9,7 +9,9 @@ import java.util.Optional;
 @Repository
 public interface LoginRepository extends JpaRepository<LoginModel, Integer> {
 
-    boolean existsByUsername(String username);  // Fixed the typo from "exits" to "exists"
+    boolean existsByUsername(String username);
 
     LoginModel findByUsernameAndPassword(String username, String password);
+
+    LoginModel findByUsername(String username);
 }

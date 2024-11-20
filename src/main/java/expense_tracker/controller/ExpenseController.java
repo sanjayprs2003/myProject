@@ -4,11 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.util.*;
 
-import expense_tracker.model.CategoriesModel;
-import expense_tracker.model.ExpensesModel;
-import expense_tracker.model.IncomeModel;
-import expense_tracker.model.LoginModel;
+import expense_tracker.model.*;
 import expense_tracker.service.ExpenseService;
+import expense_tracker.utility.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +24,12 @@ public class ExpenseController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    private final JwtUtil jwtUtil;
+
     private static final Logger logger = LoggerFactory.getLogger(ExpenseController.class);
 
-    public ExpenseController() {
+    public ExpenseController(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/add-user")
@@ -46,9 +47,10 @@ public class ExpenseController {
     public ResponseEntity<Object> login(@RequestBody LoginModel login) {
         try {
             LoginModel result = service.checkUser(login);
-
             if (result != null) {
-                return ResponseEntity.ok(result);
+                String token = jwtUtil.generateToken(result.getUsername(), result.getId());
+                AuthResponse authResponse = new AuthResponse(result.getId(), token);
+                return ResponseEntity.ok().body(authResponse);
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("{\"message\": \"Invalid username or password\"}");
@@ -57,7 +59,6 @@ public class ExpenseController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
     }
-
 
     @PostMapping("/add-income")
     public ResponseEntity<String> addIncome(@RequestBody IncomeModel income) {
@@ -80,9 +81,9 @@ public class ExpenseController {
        }
     }
 
-    @GetMapping("/view-expense/{userid}")
-    public ResponseEntity<Object> getExpense(@PathVariable("userid") int userid) {
-        List<Map<String, Object>> result = service.getExpense(userid);
+    @GetMapping("/view-expense/{userId}")
+    public ResponseEntity<Object> getExpense(@PathVariable("userId") int userId) {
+        List<Map<String, Object>> result = service.getExpense(userId);
         return ResponseEntity.ok(result);
     }
 
@@ -140,21 +141,15 @@ public class ExpenseController {
           }
     }
 
-    @GetMapping("/view-expenses")
-    public ResponseEntity<Object> viewAllExpense() {
-        List<Map<String, Object>> response = this.service.viewAll();
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/view-category/{userid}")
-    public ResponseEntity<Object> viewCategory(@PathVariable("userid") int userid) {
-        Set<String> result = service.getCategory(userid);
+    @GetMapping("/view-category/{userId}")
+    public ResponseEntity<Object> viewCategory(@PathVariable("userId") int userId) {
+        Set<String> result = service.getCategory(userId);
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/view-by-category/{userid}")
-    public ResponseEntity<Object> viewByCategory(@PathVariable("userid") int userid, @RequestParam String category) {
-        List<Map<String, Object>> response = this.service.viewByCategory(userid, category);
+    @GetMapping("/view-by-category/{userId}")
+    public ResponseEntity<Object> viewByCategory(@PathVariable("userId") int userId, @RequestParam String category) {
+        List<Map<String, Object>> response = this.service.viewByCategory(userId, category);
         return ResponseEntity.ok(response);
     }
 
