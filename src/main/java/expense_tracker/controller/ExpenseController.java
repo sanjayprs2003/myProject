@@ -1,18 +1,26 @@
 package expense_tracker.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.IOError;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Date;
 import java.util.*;
 
 import expense_tracker.model.*;
 import expense_tracker.service.ExpenseService;
 import expense_tracker.utility.JwtUtil;
+import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.PathResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping({"/api/expenses"})
@@ -46,15 +54,8 @@ public class ExpenseController {
     @PostMapping("/login")
     public ResponseEntity<Object> login(@RequestBody LoginModel login) {
         try {
-            LoginModel result = service.checkUser(login);
-            if (result != null) {
-                String token = jwtUtil.generateToken(result.getUsername(), result.getId());
-                AuthResponse authResponse = new AuthResponse(result.getId(), token);
-                return ResponseEntity.ok().body(authResponse);
-            } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("{\"message\": \"Invalid username or password\"}");
-            }
+               AuthModel result = service.checkUser(login);
+                return ResponseEntity.ok().body(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"" + e.getMessage() + "\"}");
         }
@@ -170,6 +171,36 @@ public class ExpenseController {
            response.put("Error",e.getMessage());
            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
        }
+    }
+
+    @PostMapping("/upload/{userId}")
+    public ResponseEntity<?> uploadFile(@PathVariable("userId") int userId, @RequestParam("photo") MultipartFile photo) {
+        if (photo.isEmpty()) {
+            return ResponseEntity.status(400).body("{\"success\": false, \"message\": \"No file found\"}");
+        }
+        try {
+            String fileName = service.uploadImage(userId, photo);
+            return ResponseEntity.ok().body("{\"success\": true, \"message\": \"File uploaded successfully\", \"fileName\": \"" + fileName + "\"}");
+        } catch (IOException e) {
+            logger.error("Error uploading file: " + e.getMessage(), e);
+            return ResponseEntity.status(500).body("{\"success\": false, \"message\": \"Error uploading file: " + e.getMessage() + "\"}");
+        }
+    }
+
+    @GetMapping("images/{userId}")
+    public ResponseEntity<?> getImage(@PathVariable int userId) {
+        try {
+            byte[] imageBytes = service.getImage(userId);
+
+            if (imageBytes != null && imageBytes.length > 0) {
+                return ResponseEntity.ok()
+                        .body(imageBytes);
+            } else {
+                return ResponseEntity.status(404).body("{\"message\": \"Image not found\"}");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body("{\"message\": \"Error Uploading File\"}");
+        }
     }
 }
 

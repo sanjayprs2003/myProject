@@ -16,11 +16,14 @@ public class JwtUtil {
     private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
     public String generateToken(String username, int userId) {
+        long now = System.currentTimeMillis();
+        Date expiryDate = new Date(now + 1000 * 60 * 60 * 24);
+
         return Jwts.builder()
                 .setSubject(username)
                 .claim("userId", userId)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10))
+                .setIssuedAt(new Date(now))
+                .setExpiration(expiryDate)
                 .signWith(SignatureAlgorithm.HS256, secretKey)
                 .compact();
     }
@@ -56,8 +59,13 @@ public class JwtUtil {
     }
 
 
-    private boolean isTokenExpired(String token) {
-        return getExpirationDate(token).before(new Date());
+    public boolean isTokenExpired(String token) {
+        Date expirationDate = getExpirationDate(token);
+        if (expirationDate == null) {
+            return true;
+        }
+        Date currentTime = new Date();
+        return expirationDate.before(currentTime);
     }
 
     private Date getExpirationDate(String token) {

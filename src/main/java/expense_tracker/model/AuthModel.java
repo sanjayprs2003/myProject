@@ -1,10 +1,28 @@
 package expense_tracker.model;
 
-public class AuthResponse {
+import jakarta.persistence.*;
+
+@Entity
+@Table(
+        name = "Auth"
+)
+public class AuthModel {
+    @Id
+    @Column(
+            name = "Id"
+    )
     private int userId;
+
+    @Column(
+            name = "token"
+    )
     private String token;
 
-    public AuthResponse(int userId, String token) {
+    public AuthModel(){
+
+    }
+
+    public AuthModel(int userId, String token) {
         this.userId = userId;
         this.token = token;
     }
