@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViewAllExpense</title>
+    <link rel="stylesheet" href="/CSS/viewAllExpense.css">
+
+</head>
+
+<body>
+    <div class="navbar">
+        <h1>Personal Expense Tracker</h1>
+        <div>
+            <a href="IncomePg.html">Income</a>
+            <a href="AddExpense.html">Add Expense</a>
+            <a href="ViewAllPg.html">View All Expenses</a>
+            <a href="ViewByCategory.html">View by Category</a>
+            <a href="ViewByDatePg.html">View by Date</a>
+            <a href="CategoryReport.html">User Category Report</a>
+            <a href="LoginPg.html">Log Out</a>
+        </div>
+    </div>
+
+    <div class="photo-upload">
+        <form id="photoUploadForm" enctype="multipart/form-data">
+            <input type="file" id="photoInput" name="photo" accept="image/*" onchange="previewPhoto();">
+            <div id="photoPreview" style="display: none;">
+                <img id="previewImage" src="" alt="Image Preview">
+            </div>
+            <button type="submit">Upload Photo</button>
+        </form>
+
+     <div id="uploadedImageContainer">
+            <p>Uploaded Image:</p>
+            <img id="uploadedImage" src="" alt="Uploaded Image" style="display: none;">
+        </div> 
+    </div>
+
+    <h1>View All Expenses</h1>
+    <div class="results" id="results">
+        <h2>Expense Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category ID</th>
+                    <th>Amount</th>
+                    <th>Category Name</th>
+                    <th>Description</th>
+                    <th>Category Type</th>
+                    <th>Date</th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="allexpense">
+
+            </tbody>
+        </table>
+    </div>
+    <div class="container1" id="container1">
+        <h1>Update Expense</h1>
+        <div class="form-group">
+            <label for="categoryid">Enter Category ID:</label>
+            <input type="number" id="categoryid" readonly>
+        </div>
+        <div class="form-group">
+            <label for="amount">Enter Expense Amount:</label>
+            <input type="number" id="amount" required>
+        </div>
+        <div class="form-group">
+            <label for="name">Enter Category Name:</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Enter Category Description:</label>
+            <input type="text" id="description" required>
+        </div>
+        <div class="form-group">
+            <label for="type">Enter Category Type:</label>
+            <input type="text" id="type" required>
+        </div>
+        <div class="form-group">
+            <label for="date">Enter The Date:</label>
+            <input type="date" id="date" required>
+        </div>
+        <button onclick="editExpense(categoryid)">Enter</button>
+        <label id="error"></label>
+    </div>
+    <script>
+        if (sessionStorage.getItem("isLoggedIn") !== "true") {
+            window.location.href = "LoginPg.html";
+        }
+        const token = localStorage.getItem("authToken");
+        const userid = localStorage.getItem("userId");
+
+        const handleExpiredToken = () => {
+            alert("Your session has expired. Please log in again.");
+            sessionStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("userId");
+            window.location.href = "LoginPg.html";
+        };
+
+        const getAllExpense = async () => {
+            try {
+
+                const response = await fetch(`http://localhost:8080/api/expenses/view-expense/${userid}`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (response.status === 403) {
+                    handleExpiredToken();
+                    return;
+                }
+
+                const result = await response.json();
+                const tablebody = document.getElementById("allexpense");
+                tablebody.innerHTML = "";
+                result.forEach(expenses => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                    <td>${expenses.categoryid}</td>
+                    <td>${expenses.amount}</td>
+                    <td>${expenses.name}</td>
+                    <td>${expenses.description}</td>
+                    <td>${expenses.type}</td>
+                    <td>${expenses.date}</td>
+                  <td>
+                    <button onclick="updateExpense(
+                        ${expenses.userid},
+                        ${expenses.categoryid},
+                        ${expenses.amount},
+                        '${expenses.name}', 
+                        '${expenses.description}', 
+                        '${expenses.type}', 
+                        '${expenses.date}'
+                    )">
+                        Update
+                    </button>
+                    </td>
+
+                    <td><button onclick="deleteExpense(${expenses.userid},${expenses.categoryid})">Delete</button></td>`;
+
+                    tablebody.appendChild(row);
+
+                });
+
+                document.getElementById("results").style.display = 'block';
+
+
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", getAllExpense);
+
+        async function deleteExpense(userId, categoryId) {
+
+            const isConfirm = window.confirm("Are you sure you want to delete ?");
+
+            if (isConfirm) {
+                try {
+                    const response = await fetch(`http://localhost:8080/api/expenses/delete-user/${userId}?categoryid=${categoryId}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        }
+                    });
+
+                    if (response.status === 403) {
+                        handleExpiredToken();
+                        return;
+                    }
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        location.reload();
+                    } else {
+                        alert("Error")
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                }
+            }
+            else {
+                console.log("Delete action was canceled.");
+            }
+        }
+
+        function updateExpense(userid, categoryid, amount, name, description, type, date) {
+
+            document.getElementById("results").style.display = "none";
+            document.getElementById("container1").style.display = "block";
+            document.getElementById("categoryid").value = categoryid;
+            document.getElementById("amount").value = amount;
+            document.getElementById("name").value = name;
+            document.getElementById("description").value = description;
+            document.getElementById("type").value = type;
+            document.getElementById("date").value = date;
+        }
+
+        async function editExpense(categoryId) {
+
+            const userid = localStorage.getItem("userId");
+            const categoryid = document.getElementById("categoryid").value;
+            const amount = document.getElementById("amount").value;
+            const name = document.getElementById("name").value;
+            const description = document.getElementById("description").value;
+            const type = document.getElementById("type").value;
+            const date = document.getElementById("date").value;
+            const token = localStorage.getItem("authToken");
+
+            try {
+                if (userid > 0 && categoryid > 0 && amount > 0 && name != "" && description != "" && type != "" && date != "") {
+                    const requestBody = {
+                        userId: parseInt(userid),
+                        categoryId: parseInt(categoryid),
+                        expenses: {
+                            amount: parseFloat(amount),
+                            description: description,
+                            date: date
+                        },
+                        category: {
+                            name: name,
+                            type: type
+                        }
+                    }
+                    const response = await fetch(`http://localhost:8080/api/expenses/update-expense/${userid}`, {
+                        method: "PUT",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (response.status === 403) {
+                        handleExpiredToken();
+                        return;
+                    }
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        document.getElementById("error").style.color = 'lightgreen';
+                        document.getElementById("error").innerHTML = result.message;
+                        setTimeout(function () {
+                            window.location.href = "ViewAllPg.html";
+                        }, 1000);
+                    } else {
+                        document.getElementById("error").style.color = 'red';
+                        document.getElementById("error").innerHTML = result.message;
+                    }
+
+                }
+                else {
+                    document.getElementById("error").style.color = 'red';
+                    document.getElementById("error").innerHTML = 'Please Give All Details';
+                }
+
+            } catch (error) {
+                document.getElementById("error").style.color = 'red';
+                document.getElementById("error").innerHTML = 'Please Give All Details';
+            }
+
+        }
+
+        document.getElementById("photoUploadForm").addEventListener("submit", uploadPhoto);
+
+function previewPhoto() {
+    const file = document.getElementById('photoInput').files[0];
+    const reader = new FileReader();
+
+    reader.onloadend = function () {
+        const previewImage = document.getElementById('previewImage');
+        previewImage.src = reader.result;
+        previewImage.style.display = 'block';
+    }
+
+    if (file) {
+        reader.readAsDataURL(file);
+    }
+}
+
+async function uploadPhoto(event) {
+    event.preventDefault();
+
+    const formData = new FormData();
+    const photoInput = document.getElementById("photoInput");
+    const file = photoInput.files[0];
+
+    if (file) {
+        formData.append("photo", file);
+
+        try {
+            const response = await fetch(`http://localhost:8080/api/expenses/upload/${userid}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const responseBody = await response.json(); 
+
+            try {
+                if (response.ok) {
+                    alert(responseBody.message);
+                    location.reload();
+                } else {
+                    alert(result.message); 
+                }
+            } catch (error) {
+                console.error("Error parsing response:", error);
+                alert("Unexpected response from server");
+            }
+
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Error uploading file");
+        }
+
+    } else {
+        alert("Please select a photo to upload.");
+    }
+}
+
+const fetchUploadedImage = async () => {
+    const token = localStorage.getItem("authToken");
+
+    try {
+        const response = await fetch(`http://localhost:8080/api/expenses/images/${userid}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error("Image fetch failed");
+        }
+
+        const imageBlob = await response.blob();
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const uploadedImage = document.getElementById("uploadedImage");
+        uploadedImage.src = imageUrl;
+        uploadedImage.style.display = 'block';
+    } catch (error) {
+        console.error("Error fetching image:", error);
+        alert("Error fetching uploaded image.");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", fetchUploadedImage);
+
+
+    </script>
+</body>
+
+</html>

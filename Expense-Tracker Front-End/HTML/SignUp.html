@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <link rel="stylesheet" href="/CSS/LoginPg.css">
+
+</head>
+
+<body onload="clearFields()">
+    <div class="container">
+        <div class="box">
+            <h1>Sign Up</h1>
+            <div class="container1">
+                <div>
+                    <label>Enter The UserName :</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div>
+                    <label>Enter The Password :</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div>
+                    <label>Enter The Confirm Password :</label>
+                    <input type="password" id="password1" required>
+                </div>
+                <button onclick="submit()">Sign Up</button>
+            </div>
+            <label id="error"></label>
+        </div>
+    </div>
+
+    <script>
+
+        function clearFields() {
+            document.getElementById("username").value = "";
+            document.getElementById("password").value = "";
+            document.getElementById("password1").value = "";
+        }
+        async function submit() {
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const confirmPassword = document.getElementById("password1").value.trim();
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+            if (username === "" || password === "" || confirmPassword === "") {
+                document.getElementById("error").style.color = "red";
+                document.getElementById("error").innerHTML = "Please fill in all fields.";
+                return;
+            }
+
+            if (username.length < 6 || password.length < 8) {
+                document.getElementById("error").style.color = "red";
+                document.getElementById("error").innerHTML = "Username and Password should be at least 6 characters long.";
+                return;
+            }
+
+            if (!passwordRegex.test(password)) {
+                document.getElementById("error").style.color = "red";
+                document.getElementById("error").textContent = "Password should be at least 8 characters long and contains special character";
+                console.log("Error");
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                document.getElementById("error").style.color = "red";
+                document.getElementById("error").innerHTML = "Password Does Not Match";
+                return;
+            }
+
+            try {
+                const data = {
+                    username: username,
+                    password: btoa(password)
+                };
+
+                const response = await fetch(`http://localhost:8080/api/expenses/add-user`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    document.getElementById("error").style.color = "lightgreen";
+                    document.getElementById("error").innerHTML = result.message;
+                    setTimeout(function () {
+                        window.location.href = "LoginPg.html";
+                    }, 1000);
+                }
+                else {
+                    document.getElementById("error").style.color = "red";
+                    document.getElementById("error").innerHTML = result.message;
+                }
+
+            } catch (error) {
+                document.getElementById("error").style.color = "red";
+                document.getElementById("error").innerHTML = error;
+            }
+        }
+    </script>
+</body>
+
+</html>

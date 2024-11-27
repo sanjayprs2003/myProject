@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViewExpense</title>
+    <link rel="stylesheet" href="/CSS/ViewByUserPg.css">
+
+</head>
+
+<body>
+    <div class="navbar">
+        <h1>Personal Expense Tracker</h1>
+        <div>
+            <a href="IncomePg.html">Income</a>
+            <a href="AddExpense.html">Add Expense</a>
+            <a href="ViewAllPg.html">View All Expenses</a>
+            <a href="ViewByCategory.html">View by Category</a>
+            <a href="ViewByDatePg.html">View by Date</a>
+            <a href="CategoryReport.html">User Category Report</a>
+            <a href="LoginPg.html">Log Out</a>
+        </div>
+    </div>
+    <h1>Category Report</h1>
+
+    <div class="results" id="results">
+        <h2>Category Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody id="expenseTableBody">
+
+            </tbody>
+        </table>
+    </div>
+    <label id="error"></label>
+    <script>
+
+        if (sessionStorage.getItem("isLoggedIn") !== "true") {
+            window.location.href = "LoginPg.html";
+        }
+
+        const handleExpiredToken = () => {
+            alert("Your session has expired. Please log in again.");
+            sessionStorage.removeItem("isLoggedIn");
+            localStorage.removeItem("authToken");
+            localStorage.removeItem("userId");
+            window.location.href = "LoginPg.html";
+        };
+
+        const getReport = async () => {
+            const token = localStorage.getItem("authToken");
+            const userid = localStorage.getItem("userId");
+
+            try {
+                const getData = await fetch(`http://localhost:8080/api/expenses/get-category-report/${userid}`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (getData.status === 403) {
+                    handleExpiredToken();
+                    return;
+                }
+
+
+                if (!getData.ok) {
+                    document.getElementById("error").style.display = 'block';
+                    document.getElementById("error").style.color = 'red';
+                    document.getElementById("error").innerHTML = 'Please Give Valid ID';
+
+                }
+
+                else {
+                    const result = await getData.json();
+                    const tableBody = document.getElementById("expenseTableBody");
+
+                    tableBody.innerHTML = "";
+                    for (const [category, percentage] of Object.entries(result)) {
+                        const row = document.createElement("tr");
+                        row.innerHTML = `<td>${category}</td><td>${percentage}</td>`
+
+                        tableBody.appendChild(row);
+                    }
+                    ;
+
+                    document.getElementById("results").style.display = "block";
+                    document.getElementById("error").style.display = 'none';
+                }
+
+            }
+            catch (error) {
+                document.getElementById("error").style.display = 'block';
+                document.getElementById("error").style.color = 'red';
+                document.getElementById("error").innerHTML = 'Please Give Valid ID';
+            }
+
+        }
+
+        document.addEventListener("DOMContentLoaded", getReport);
+    </script>
+</body>
+
+</html>
