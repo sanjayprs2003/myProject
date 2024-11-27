@@ -1,182 +1,193 @@
 package expense_tracker.service;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Date;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
 
-import expense_tracker.model.CategoriesModel;
-import expense_tracker.model.ExpensesModel;
-import expense_tracker.model.IncomeModel;
-import expense_tracker.repository.CategoriesRepository;
-import expense_tracker.repository.ExpensesRepository;
-import expense_tracker.repository.IncomeRepository;
+import expense_tracker.model.*;
+import expense_tracker.repository.*;
+import expense_tracker.utility.JwtUtil;
+import expense_tracker.utility.SecurityConfig;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.errors.*;
+import jakarta.annotation.Resource;
+import jakarta.persistence.criteria.CriteriaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.PathResource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class ExpenseService {
+
     @Autowired
     private IncomeRepository incomeRespo;
     @Autowired
     private ExpensesRepository expenseRespo;
     @Autowired
     private CategoriesRepository categoryRespo;
-    private static final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
+    @Autowired
+    private LoginRepository loginRespo;
+    @Autowired
+    private AuthRepository authRespo;
+    @Autowired
+    private PhotoRepository photoRespo;
 
-    public ExpenseService() {
+    private final MinioClient minioClient;
+    private final String bucketName;
+
+    private JwtUtil jwtUtil;
+
+    public ExpenseService(JwtUtil jwtUtil, @Value("${minio.url}") String minioUrl,  @Value("${minio.access-key}") String accessKey,
+                          @Value("${minio.secret-key}") String secretKey, @Value("${minio.bucket-name}") String bucketName) {
+
+        this.jwtUtil = jwtUtil;
+        this.minioClient = MinioClient.builder().endpoint(minioUrl).credentials(accessKey, secretKey).build();
+        this.bucketName = bucketName;
     }
 
-    public void addIncomeService(IncomeModel incomeObj) {
-        if (!this.incomeRespo.existsById(incomeObj.getUserId())) {
-            this.incomeRespo.save(incomeObj);
+    private final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
+
+    public void addIncome(IncomeModel incomeObj) {
+        if (incomeObj.getUserId() <= 0 || incomeObj.getIncome() <= 0) {
+            throw new IllegalArgumentException("Invalid User ID or Income");
+        } else {
+            incomeRespo.save(incomeObj);
             logger.info("Income Added Successfully");
-        } else {
-            logger.error("UserId Already Exist Please Try Update");
         }
-
     }
 
-    public void updateIncomeService(int userId, IncomeModel incomeObj) {
-        if (this.incomeRespo.existsById(userId)) {
-            this.incomeRespo.save(incomeObj);
-            logger.info("Income Updated Successfully");
+    public IncomeModel getIncome(int userid) {
+        Optional<IncomeModel> incomeOptional = incomeRespo.findByUserId(userid);
+        if (incomeOptional.isPresent()) {
+            return incomeOptional.get();
         } else {
-            logger.error("User Not Found");
+            throw new IllegalArgumentException("Give Income");
         }
-
     }
 
-    public List<IncomeModel> getIncome() {
-        return this.incomeRespo.findAll();
-    }
 
-    public void addExpense(ExpensesModel expenseObj) {
-        if (expenseObj != null) {
-            if (!this.expenseRespo.existsByUserIdAndCategoryId(expenseObj.getUserId(), expenseObj.getCategoryId())) {
-                this.expenseRespo.save(expenseObj);
+    public void addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
+        if (userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <= 0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
+            throw new IllegalArgumentException("Invalid Details");
+        } else if (incomeRespo.existsById(userId)) {
+            if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+                expenseObj.setUserId(userId);
+                expenseObj.setCategoryId(categoryId);
+                expenseRespo.save(expenseObj);
                 logger.info("Expenses Added Successfully");
             } else {
                 logger.error("User Details Already Exist Please Try Update");
+                throw new IllegalArgumentException("Given ID Details Already Exist");
             }
         } else {
-            logger.error("Given Details Not Valid");
+            logger.error("User Id Not Exist In Income Please Try Update");
+            throw new IllegalArgumentException("Give The User Income First");
         }
-
     }
 
-    public void addCategory(CategoriesModel categoryObj) {
-        if (categoryObj != null) {
-            if (!this.categoryRespo.existsByUserIdAndCategoryId(categoryObj.getUserId(), categoryObj.getCategoryId())) {
-                this.categoryRespo.save(categoryObj);
-                logger.info("Expenses Added Successfully");
-            } else {
-                logger.error("User Details Already Exist Please Try Update");
-            }
+    public void addCategory(int userId, int categoryId, CategoriesModel categoryObj) {
+        if (userId <= 0 || categoryId <= 0 || categoryObj.getName() == null || categoryObj.getType() == null) {
+            throw new IllegalArgumentException("Invalid Details");
+        } else if (!categoryRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+            categoryObj.setUserId(userId);
+            categoryObj.setCategoryId(categoryId);
+            categoryRespo.save(categoryObj);
+            logger.info("categories Added Successfully");
         } else {
-            logger.error("Given Details Not Valid");
+            logger.error("User Details Already Exist Please Try Update");
+            throw new IllegalArgumentException("Already Exist");
         }
-
     }
 
-    public void updateExpense(int userId, ExpensesModel expenseObj) {
-        if (expenseObj != null) {
-            ExpensesModel existingExpense = this.expenseRespo.findByUserIdAndCategoryId(userId, expenseObj.getCategoryId());
-            if (existingExpense != null) {
-                existingExpense.setAmount(expenseObj.getAmount());
-                existingExpense.setDescription(expenseObj.getDescription());
-                existingExpense.setDate(expenseObj.getDate());
-                this.expenseRespo.save(existingExpense);
-            } else {
-                logger.error("Given ID Does Not Exist");
-            }
+    public void updateExpense(int userId, int categoryId, ExpensesModel expenseObj) {
+        if (expenseObj == null || userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <= 0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
+            throw new IllegalArgumentException("Invalid Details");
+        }
+        ExpensesModel existingExpense = expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
+        if (existingExpense != null) {
+            existingExpense.setAmount(expenseObj.getAmount());
+            existingExpense.setDescription(expenseObj.getDescription());
+            existingExpense.setDate(expenseObj.getDate());
+            expenseRespo.save(existingExpense);
         } else {
-            logger.error("Given Details Not Valid");
+            logger.error("Given ID Does Not Exist");
+            throw new IllegalArgumentException("Given ID Does Not Exist");
         }
-
     }
 
-    public void updateCategories(int userId, CategoriesModel categoryObj) {
-        if (categoryObj != null) {
-            CategoriesModel existingCategory = this.categoryRespo.findByUserIdAndCategoryId(userId, categoryObj.getCategoryId());
-            if (existingCategory != null) {
-                existingCategory.setName(categoryObj.getName());
-                existingCategory.setType(categoryObj.getType());
-                this.categoryRespo.save(existingCategory);
-                logger.info("Category Added Successfully");
-            } else {
-                logger.error("Given ID Does Not Exist");
-            }
+    public void updateCategories(int userId, int categoryId, CategoriesModel categoryObj) {
+        if (categoryObj == null || userId <= 0 || categoryId <= 0 || categoryObj.getName() == null || categoryObj.getType() == null) {
+            throw new IllegalArgumentException("Invalid Details");
+        }
+        CategoriesModel existingCategory = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
+        if (existingCategory != null) {
+            existingCategory.setName(categoryObj.getName());
+            existingCategory.setType(categoryObj.getType());
+            categoryRespo.save(existingCategory);
+            logger.info("Category Added Successfully");
         } else {
-            logger.error("Given Credientials Not Valid");
+            logger.error("Given ID Does Not Exist");
+            throw new IllegalArgumentException("Given ID Does Not Exist");
         }
-
     }
 
-    public void deleteIncomeUser(int userId) {
-        IncomeModel income = this.incomeRespo.findByUserId(userId);
-        if (income != null) {
-            this.incomeRespo.delete(income);
-            logger.info("UserId Deleted Successfully");
-        } else {
-            logger.error("Check the Given UserId");
-        }
-
-    }
-
-    public void deleteExpenseUser(int userId) {
-        List<ExpensesModel> deleteExpenses = this.expenseRespo.findByUserId(userId);
+    public void deleteExpenseUser(int userId, int categoryId) {
+        ExpensesModel deleteExpenses = expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
         if (deleteExpenses != null) {
-            Iterator var4 = deleteExpenses.iterator();
-
-            while(var4.hasNext()) {
-                ExpensesModel deleteExpense = (ExpensesModel)var4.next();
-                this.expenseRespo.delete(deleteExpense);
-                logger.info("Expense UserId Deleted Successfully");
-            }
+            expenseRespo.delete(deleteExpenses);
         } else {
             logger.error("Check the Given UserId");
+            throw new IllegalArgumentException("Check The Details");
         }
 
     }
 
-    public void deleteCategoriesUser(int userId) {
-        List<CategoriesModel> deleteCategories = this.categoryRespo.findByUserId(userId);
+    public void deleteCategoriesUser(int userId, int categoryId) {
+        CategoriesModel deleteCategories = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
         if (deleteCategories != null) {
-            Iterator var4 = deleteCategories.iterator();
-
-            while(var4.hasNext()) {
-                CategoriesModel deleteCategory = (CategoriesModel)var4.next();
-                this.categoryRespo.delete(deleteCategory);
-                logger.info("Categories UserId Deleted Successfully");
-            }
+            categoryRespo.delete(deleteCategories);
         } else {
             logger.error("Check the Given UserId");
+            throw new IllegalArgumentException("Check The Details");
         }
 
     }
 
     public List<Map<String, Object>> viewAll() {
         List<Map<String, Object>> response = new ArrayList();
-        List<ExpensesModel> expenses = this.expenseRespo.findAll();
-        List<CategoriesModel> categories = this.categoryRespo.findAll();
+        List<ExpensesModel> expenses = expenseRespo.findAll();
+        List<CategoriesModel> categories = categoryRespo.findAll();
         Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
-        Iterator var6 = categories.iterator();
+        Iterator iterator = categories.iterator();
 
-        while(var6.hasNext()) {
-            CategoriesModel category = (CategoriesModel)var6.next();
+        while (iterator.hasNext()) {
+            CategoriesModel category = (CategoriesModel) iterator.next();
             categoryMap.put(category.getId(), category);
         }
 
-        var6 = expenses.iterator();
+        iterator = expenses.iterator();
 
-        while(var6.hasNext()) {
-            ExpensesModel expense = (ExpensesModel)var6.next();
-            CategoriesModel category = (CategoriesModel)categoryMap.get(expense.getId());
+        while (iterator.hasNext()) {
+            ExpensesModel expense = (ExpensesModel) iterator.next();
+            CategoriesModel category = (CategoriesModel) categoryMap.get(expense.getId());
             if (category != null) {
                 Map<String, Object> resultData = new LinkedHashMap();
                 resultData.put("id", expense.getId());
@@ -194,23 +205,32 @@ public class ExpenseService {
         return response;
     }
 
-    public List<Map<String, Object>> viewByCategory(String type) {
-        List<Map<String, Object>> response = new ArrayList();
-        List<ExpensesModel> expenses = this.expenseRespo.findAll();
-        List<CategoriesModel> categories = this.categoryRespo.findAll();
-        Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
-        Iterator var7 = categories.iterator();
+    public Set<String> getCategory(int userid) {
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
+        Set<String> result = new LinkedHashSet<>();
+        for (CategoriesModel category : categories) {
+            result.add(category.getType());
+        }
+        return result;
+    }
 
-        while(var7.hasNext()) {
-            CategoriesModel category = (CategoriesModel)var7.next();
+    public List<Map<String, Object>> viewByCategory(int userid, String type) {
+        List<Map<String, Object>> response = new ArrayList();
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
+        Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
+        Iterator iterator = categories.iterator();
+
+        while (iterator.hasNext()) {
+            CategoriesModel category = (CategoriesModel) iterator.next();
             categoryMap.put(category.getId(), category);
         }
 
-        var7 = expenses.iterator();
+        iterator = expenses.iterator();
 
-        while(var7.hasNext()) {
-            ExpensesModel expense = (ExpensesModel)var7.next();
-            CategoriesModel category = (CategoriesModel)categoryMap.get(expense.getId());
+        while (iterator.hasNext()) {
+            ExpensesModel expense = (ExpensesModel) iterator.next();
+            CategoriesModel category = (CategoriesModel) categoryMap.get(expense.getId());
             if (category != null && category.getType().equals(type)) {
                 Map<String, Object> resultData = new LinkedHashMap();
                 resultData.put("id", expense.getId());
@@ -228,26 +248,25 @@ public class ExpenseService {
         return response;
     }
 
-    public List<Map<String, Object>> viewByDate(Date sdate, Date ldate) {
+    public List<Map<String, Object>> viewByDate(int userid, Date sdate, Date ldate) {
         List<Map<String, Object>> response = new ArrayList();
-        List<ExpensesModel> expenses = this.expenseRespo.findAll();
-        List<CategoriesModel> categories = this.categoryRespo.findAll();
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+        List<CategoriesModel> categories = categoryRespo.findByUserId(userid);
         Map<Integer, CategoriesModel> categoryMap = new LinkedHashMap();
-        Iterator var8 = categories.iterator();
+        Iterator iterator = categories.iterator();
 
-        while(var8.hasNext()) {
-            CategoriesModel category = (CategoriesModel)var8.next();
+        while (iterator.hasNext()) {
+            CategoriesModel category = (CategoriesModel) iterator.next();
             categoryMap.put(category.getId(), category);
         }
 
-        var8 = expenses.iterator();
+        iterator = expenses.iterator();
 
-        while(var8.hasNext()) {
-            ExpensesModel expense = (ExpensesModel)var8.next();
-            CategoriesModel category = (CategoriesModel)categoryMap.get(expense.getId());
+        while (iterator.hasNext()) {
+            ExpensesModel expense = (ExpensesModel) iterator.next();
+            CategoriesModel category = (CategoriesModel) categoryMap.get(expense.getId());
             if (category != null && !expense.getDate().before(sdate) && !expense.getDate().after(ldate)) {
                 Map<String, Object> resultData = new LinkedHashMap();
-                resultData.put("id", expense.getId());
                 resultData.put("userId", expense.getUserId());
                 resultData.put("categoryId", expense.getCategoryId());
                 resultData.put("amount", expense.getAmount());
@@ -267,17 +286,114 @@ public class ExpenseService {
         Double total = this.incomeRespo.findIncomeByUserId(userId);
         if (total != null && total > 0.0) {
             List<Object[]> results = this.expenseRespo.findByCategory(userId);
-            Iterator var6 = results.iterator();
+            Iterator iterator = results.iterator();
 
-            while(var6.hasNext()) {
-                Object[] result = (Object[])var6.next();
-                String type = (String)result[0];
-                Double amount = (Double)result[1];
-                String percentage = (int)(amount / total * 100.0) + "%";
+            while (iterator.hasNext()) {
+                Object[] result = (Object[]) iterator.next();
+                String type = (String) result[0];
+                Double amount = (Double) result[1];
+                String percentage = (int) (amount / total * 100.0) + "%";
                 response.put(type, percentage);
             }
+        } else {
+            throw new IllegalArgumentException("Given ID Does Not Exist");
         }
 
         return response;
     }
+
+    public List<Map<String, Object>> getExpense(int userid) {
+
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        List<ExpensesModel> expenses = expenseRespo.findByUserId(userid);
+
+        for (ExpensesModel expense : expenses) {
+
+            CategoriesModel category = categoryRespo.findById(expense.getId());
+
+            Map<String, Object> response = new LinkedHashMap<>();
+
+            response.put("id", expense.getId());
+            response.put("userid", expense.getUserId());
+            response.put("categoryid", expense.getCategoryId());
+            response.put("amount", expense.getAmount());
+            response.put("name", category.getName());
+            response.put("description", expense.getDescription());
+            response.put("type", category.getType());
+            response.put("date", expense.getDate());
+            result.add(response);
+        }
+
+        return result;
+
+    }
+
+    public void addUser(LoginModel login) {
+        if (!loginRespo.existsByUsername(login.getUsername())) {
+            loginRespo.save(login);
+        } else {
+            throw new IllegalArgumentException("Given Username Already Exist");
+        }
+    }
+
+    public AuthModel checkUser(LoginModel login) {
+        LoginModel storedUser = loginRespo.findByUsername(login.getUsername());
+        if (storedUser != null) {
+            AuthModel auth = authRespo.findById(storedUser.getId());
+            if (auth != null) {
+                String token = auth.getToken();
+                if (jwtUtil.isTokenValid(token)) {
+                    return auth;
+                } else {
+                    authRespo.delete(auth);
+                    String newToken = jwtUtil.generateToken(storedUser.getUsername(), storedUser.getId());
+                    AuthModel newTokenAuth = new AuthModel(storedUser.getId(), newToken);
+                    authRespo.save(newTokenAuth);
+                    return newTokenAuth;
+                }
+            } else {
+                String newToken = jwtUtil.generateToken(storedUser.getUsername(), storedUser.getId());
+                AuthModel newAuthModel = new AuthModel(storedUser.getId(), newToken);
+                authRespo.save(newAuthModel);
+                return newAuthModel;
+            }
+        }
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+
+
+    public String uploadImage(int userId, MultipartFile photo) throws IOException {
+        try{
+            InputStream inputStream = photo.getInputStream();
+            String fileName = photo.getOriginalFilename();
+            long fileSize = photo.getSize();
+            minioClient.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileName).stream(inputStream, fileSize, -1).build());
+            PhotoModel newphoto = new PhotoModel();
+            newphoto.setId(userId);
+            newphoto.setFileName(fileName);
+            newphoto.setFileUrl("http://localhost:9000/" + bucketName + "/" + fileName);
+            newphoto.setFileSize(String.valueOf(fileSize));
+            newphoto.setUploadDate(LocalDateTime.now());
+            photoRespo.save(newphoto);
+            return fileName;
+        }
+        catch (Exception e) {
+            return "Error uploading file";
+        }
+    }
+
+
+    public byte[] getImage(int userId) throws Exception {
+        try  {
+            Optional<PhotoModel> photoModel = photoRespo.findById(userId);
+            String imageName = photoModel.get().getFileName();
+            InputStream inputStream = minioClient.getObject(GetObjectArgs.builder().bucket(bucketName).object(imageName).build());
+            return inputStream.readAllBytes();
+        } catch (Exception e) {
+            throw new Exception("Error reading image from MinIO", e);
+        }
+    }
+
 }
+
