@@ -2,13 +2,6 @@ package expense_tracker.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Date;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -16,22 +9,14 @@ import java.util.*;
 import expense_tracker.model.*;
 import expense_tracker.repository.*;
 import expense_tracker.utility.JwtUtil;
-import expense_tracker.utility.SecurityConfig;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
-import io.minio.errors.*;
-import jakarta.annotation.Resource;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.PathResource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -74,78 +59,117 @@ public class ExpenseService {
         }
     }
 
-    public IncomeModel getIncome(int userid) {
-        Optional<IncomeModel> incomeOptional = incomeRespo.findByUserId(userid);
-        if (incomeOptional.isPresent()) {
-            return incomeOptional.get();
-        } else {
-            throw new IllegalArgumentException("Give Income");
+    public IncomeModel getIncome(int userId) {
+        IncomeModel income = incomeRespo.findByUserId(userId);
+        if (income != null) {
+            return income;
         }
+        throw new IllegalArgumentException("Please Add Income");
     }
 
 
-    public void addExpense(int userId, int categoryId, ExpensesModel expenseObj) {
-        if (userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <= 0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
-            throw new IllegalArgumentException("Invalid Details");
-        } else if (incomeRespo.existsById(userId)) {
-            if (!this.expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
-                expenseObj.setUserId(userId);
-                expenseObj.setCategoryId(categoryId);
-                expenseRespo.save(expenseObj);
-                logger.info("Expenses Added Successfully");
-            } else {
-                logger.error("User Details Already Exist Please Try Update");
-                throw new IllegalArgumentException("Given ID Details Already Exist");
+    public void addExpense(Map<String, Object> requestBody) {
+        int userId = Integer.parseInt((String) requestBody.get("userId"));
+        int categoryId = Integer.parseInt((String) requestBody.get("categoryid"));
+        int amount = (int) requestBody.get("amount");
+        String description = (String) requestBody.get("description");
+        String strDate = (String) requestBody.get("date");
+        Date date = Date.valueOf(strDate);
+
+        if(!expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+
+            ExpensesModel expense = new ExpensesModel();
+
+            expense.setUserId(userId);
+            expense.setCategoryId(categoryId);
+            expense.setAmount((double) amount);
+            expense.setDescription(description);
+            expense.setDate(date);
+
+            expenseRespo.save(expense);
+        }
+
+       else {
+            throw new IllegalArgumentException("CategoryID Already Exist");
+        }
+
+    }
+
+    public void addCategory(Map<String, Object> requestBody) {
+        int userId = Integer.parseInt((String) requestBody.get("userId"));
+        int categoryId = Integer.parseInt((String) requestBody.get("categoryid"));
+        String name = (String) requestBody.get("name");
+        String type = (String) requestBody.get("type");
+
+        if(!categoryRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+
+          CategoriesModel category = new CategoriesModel();
+
+            category.setUserId(userId);
+            category.setCategoryId(categoryId);
+            category.setName(name);
+            category.setType(type);
+
+            categoryRespo.save(category);
+        }
+
+        else {
+            throw new IllegalArgumentException("CategoryID Already Exist");
+        }
+    }
+
+    public void updateExpense(Map<String, Object> requestBody) {
+        try {
+            int userId = Integer.parseInt((String) requestBody.get("userId"));
+            int categoryId = Integer.parseInt((String) requestBody.get("categoryid"));
+            int amount = (int) requestBody.get("amount");
+            String description = (String) requestBody.get("description");
+            String strDate = (String) requestBody.get("date");
+            Date date = Date.valueOf(strDate);
+
+            if(expenseRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
+
+                ExpensesModel expense = expenseRespo.findByUserIdAndCategoryId(userId,categoryId);
+
+                expense.setUserId(userId);
+                expense.setCategoryId(categoryId);
+                expense.setAmount((double) amount);
+                expense.setDescription(description);
+                expense.setDate(date);
+
+                expenseRespo.save(expense);
             }
-        } else {
-            logger.error("User Id Not Exist In Income Please Try Update");
-            throw new IllegalArgumentException("Give The User Income First");
+
+            else {
+                throw new IllegalArgumentException("CategoryID Already Exist");
+            }
         }
+        catch(IllegalArgumentException e) {
+            throw new IllegalArgumentException("Error While Updating");
+        }
+
     }
 
-    public void addCategory(int userId, int categoryId, CategoriesModel categoryObj) {
-        if (userId <= 0 || categoryId <= 0 || categoryObj.getName() == null || categoryObj.getType() == null) {
-            throw new IllegalArgumentException("Invalid Details");
-        } else if (!categoryRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
-            categoryObj.setUserId(userId);
-            categoryObj.setCategoryId(categoryId);
-            categoryRespo.save(categoryObj);
-            logger.info("categories Added Successfully");
-        } else {
-            logger.error("User Details Already Exist Please Try Update");
-            throw new IllegalArgumentException("Already Exist");
-        }
-    }
+    public void updateCategories(Map<String, Object> requestBody) {
+        int userId = Integer.parseInt((String) requestBody.get("userId"));
+        int categoryId = Integer.parseInt((String) requestBody.get("categoryid"));
+        String name = (String) requestBody.get("name");
+        String type = (String) requestBody.get("type");
 
-    public void updateExpense(int userId, int categoryId, ExpensesModel expenseObj) {
-        if (expenseObj == null || userId <= 0 || categoryId <= 0 || expenseObj.getAmount() <= 0 || expenseObj.getDescription() == null || expenseObj.getDate() == null) {
-            throw new IllegalArgumentException("Invalid Details");
-        }
-        ExpensesModel existingExpense = expenseRespo.findByUserIdAndCategoryId(userId, categoryId);
-        if (existingExpense != null) {
-            existingExpense.setAmount(expenseObj.getAmount());
-            existingExpense.setDescription(expenseObj.getDescription());
-            existingExpense.setDate(expenseObj.getDate());
-            expenseRespo.save(existingExpense);
-        } else {
-            logger.error("Given ID Does Not Exist");
-            throw new IllegalArgumentException("Given ID Does Not Exist");
-        }
-    }
+        if(categoryRespo.existsByUserIdAndCategoryId(userId, categoryId)) {
 
-    public void updateCategories(int userId, int categoryId, CategoriesModel categoryObj) {
-        if (categoryObj == null || userId <= 0 || categoryId <= 0 || categoryObj.getName() == null || categoryObj.getType() == null) {
-            throw new IllegalArgumentException("Invalid Details");
+            CategoriesModel category = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
+
+            category.setUserId(userId);
+            category.setCategoryId(categoryId);
+            category.setName(name);
+            category.setType(type);
+
+            categoryRespo.save(category);
         }
-        CategoriesModel existingCategory = categoryRespo.findByUserIdAndCategoryId(userId, categoryId);
-        if (existingCategory != null) {
-            existingCategory.setName(categoryObj.getName());
-            existingCategory.setType(categoryObj.getType());
-            categoryRespo.save(existingCategory);
-            logger.info("Category Added Successfully");
-        } else {
-            logger.error("Given ID Does Not Exist");
-            throw new IllegalArgumentException("Given ID Does Not Exist");
+
+        else {
+            throw new IllegalArgumentException("CategoryID Already Exist");
         }
     }
 
@@ -235,11 +259,11 @@ public class ExpenseService {
                 Map<String, Object> resultData = new LinkedHashMap();
                 resultData.put("id", expense.getId());
                 resultData.put("userId", expense.getUserId());
-                resultData.put("categoryId", expense.getCategoryId());
+                resultData.put("categoryid", expense.getCategoryId());
                 resultData.put("amount", expense.getAmount());
-                resultData.put("categoryName", category.getName());
+                resultData.put("name", category.getName());
                 resultData.put("description", expense.getDescription());
-                resultData.put("categoryType", category.getType());
+                resultData.put("type", category.getType());
                 resultData.put("date", expense.getDate());
                 response.add(resultData);
             }
@@ -268,11 +292,11 @@ public class ExpenseService {
             if (category != null && !expense.getDate().before(sdate) && !expense.getDate().after(ldate)) {
                 Map<String, Object> resultData = new LinkedHashMap();
                 resultData.put("userId", expense.getUserId());
-                resultData.put("categoryId", expense.getCategoryId());
+                resultData.put("categoryid", expense.getCategoryId());
                 resultData.put("amount", expense.getAmount());
-                resultData.put("categoryName", category.getName());
+                resultData.put("name", category.getName());
                 resultData.put("description", expense.getDescription());
-                resultData.put("categoryType", category.getType());
+                resultData.put("type", category.getType());
                 resultData.put("date", expense.getDate());
                 response.add(resultData);
             }
@@ -281,8 +305,8 @@ public class ExpenseService {
         return response;
     }
 
-    public Map<String, String> getCategoryReport(int userId) {
-        Map<String, String> response = new LinkedHashMap();
+    public List<Map<String, String>> getCategoryReport(int userId) {
+        List<Map<String, String>> response = new ArrayList();
         Double total = this.incomeRespo.findIncomeByUserId(userId);
         if (total != null && total > 0.0) {
             List<Object[]> results = this.expenseRespo.findByCategory(userId);
@@ -293,7 +317,12 @@ public class ExpenseService {
                 String type = (String) result[0];
                 Double amount = (Double) result[1];
                 String percentage = (int) (amount / total * 100.0) + "%";
-                response.put(type, percentage);
+
+                Map<String, String> data = new HashMap<>();
+                data.put("type", type);
+                data.put("percentage", percentage);
+
+                response.add(data);
             }
         } else {
             throw new IllegalArgumentException("Given ID Does Not Exist");
@@ -338,7 +367,7 @@ public class ExpenseService {
     }
 
     public AuthModel checkUser(LoginModel login) {
-        LoginModel storedUser = loginRespo.findByUsername(login.getUsername());
+        LoginModel storedUser = loginRespo.findByUsernameAndPassword(login.getUsername(), login.getPassword());
         if (storedUser != null) {
             AuthModel auth = authRespo.findById(storedUser.getId());
             if (auth != null) {

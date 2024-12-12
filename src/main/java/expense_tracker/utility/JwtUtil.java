@@ -17,7 +17,7 @@ public class JwtUtil {
 
     public String generateToken(String username, int userId) {
         long now = System.currentTimeMillis();
-        Date expiryDate = new Date(now + 1000 * 10);
+        Date expiryDate = new Date(now + 1000 * 60 * 60);
 
         return Jwts.builder()
                 .setSubject(username)
