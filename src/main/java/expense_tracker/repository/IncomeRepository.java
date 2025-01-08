@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface IncomeRepository extends JpaRepository<IncomeModel, Integer> {
-    Optional<IncomeModel> findByUserId(int userId);
+    IncomeModel findByUserId(int userId);
 
     @Query("SELECT i.income from IncomeModel i WHERE i.userId = :userId")
     Double findIncomeByUserId(int userId);

@@ -1,15 +1,11 @@
 package expense_tracker.utility;
 
-import expense_tracker.controller.ExpenseController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -30,7 +26,7 @@ public class SecurityConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5500")
+                .allowedOrigins("http://localhost:3000")
                 .allowedMethods("GET", "POST", "PUT", "DELETE")
                 .allowedHeaders("*")
                 .allowCredentials(true);
@@ -39,13 +35,15 @@ public class SecurityConfig implements WebMvcConfigurer {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         logger.debug("Configuring HTTP security for login and other endpoints.");
+
         http.csrf().disable().cors().and()
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/expenses/login","/api/expenses/add-user")
-                        .permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/expenses/login", "/api/expenses/add-user")  // Exclude login and registration
+                        .permitAll()  // Allow these endpoints without authentication
+                        .anyRequest().authenticated()  // Require authentication for other endpoints
                 )
-                .addFilterBefore(new JwtFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class); // Apply JWT filter
+
         return http.build();
     }
 }

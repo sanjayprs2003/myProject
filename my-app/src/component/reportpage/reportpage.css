@@ -1,0 +1,28 @@
+.report-1 {
+    margin : 0;
+}
+
+.report-3 {
+    margin-left: 25%;
+    width: 50%;
+    border-collapse: collapse;
+    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.3);
+    font-size: large;
+}
+
+.report-4 {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+    font-weight: bolder;
+}
+
+.report-5 {
+    background-color: #007BFF;
+    color: black;
+    align-items: center;
+    justify-content: center;
+    width : 50%;
+    
+}

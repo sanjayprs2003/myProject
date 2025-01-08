@@ -17,7 +17,7 @@ public class JwtUtil {
 
     public String generateToken(String username, int userId) {
         long now = System.currentTimeMillis();
-        Date expiryDate = new Date(now + 1000 * 60 * 60 * 24);
+        Date expiryDate = new Date(now + 1000 * 60 * 60);
 
         return Jwts.builder()
                 .setSubject(username)
@@ -42,23 +42,6 @@ public class JwtUtil {
         }
     }
 
-    public int getUserIdFromToken(String token) {
-        try {
-            Claims claims = Jwts.parser()
-                    .setSigningKey(secretKey).build().parseClaimsJws(token).getBody();
-            return claims.get("userId", Integer.class);
-        }
-        catch (JwtException e){
-            return -1;
-        }
-    }
-
-    public boolean validateToken(String token, String username) {
-        String tokenUsername = getUsernameFromToken(token);
-        return (tokenUsername != null && tokenUsername.equals(username) && !isTokenExpired(token));
-    }
-
-
     public boolean isTokenExpired(String token) {
         Date expirationDate = getExpirationDate(token);
         if (expirationDate == null) {
@@ -81,7 +64,6 @@ public class JwtUtil {
             return null;
         }
     }
-
 
     public boolean isTokenValid(String token) {
         try {
