@@ -1,0 +1,59 @@
+.div1 {
+    margin: 0;
+}
+
+.div2 {
+    display: block;
+}
+
+.div3 {
+   display: flex;
+   justify-content: center;
+}
+
+.div4 {
+    padding: 10px;
+}
+
+.div4 label {
+    font-size: 20px;
+}
+
+.div4 input {
+    padding: 10px;
+    margin-left: 10px;
+    font-size: 18px;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.table-1 {
+    margin-left: 20px;
+    margin-right: 20px;
+    width: 98%;
+    border-collapse: collapse;
+    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.3);
+    font-size: large;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: center;
+    font-weight: bolder;
+}
+
+th {
+    background-color: #80c1f0;
+    color: black;
+}
+
+tbody td {
+    vertical-align: middle;
+}
+
+#butn {
+    margin: 15px;
+}
