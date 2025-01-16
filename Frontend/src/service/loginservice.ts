@@ -44,7 +44,6 @@ const LoginService = () => {
       if (response.success) {
         localStorage.setItem("token", response.token);
         localStorage.setItem("userId", response.userId);
-        console.log(localStorage.getItem("token"));
         navigate("/homepage");
       } else {
         setError("Error while logging");
