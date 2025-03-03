@@ -57,6 +57,7 @@ const SignupService = () => {
 
             if (response.success) {
                 navigate("/login");
+                console.log("Hello");
             }
         }
 

@@ -25,10 +25,17 @@ const HomeService = () => {
       const fetchExpense = async () => {
         try {
           const params: HomeInterface.param = { userId };
-          const response = await apiService.sendRequest(HomeInterface.view, params, navigate) as HomeInterface.retrivel[];
-          setExpenses(response);
+          const response = await apiService.sendRequest(HomeInterface.view, params, navigate) as HomeInterface.retrivel;
+  
+          if (Array.isArray(response)) {
+            setExpenses(response);
+          } else {
+            setExpenses([]);
+            setError("Response is not an array.");
+          }
         } catch (err) {
-          setError("Failed to load expenses: " + (err instanceof Error ? err.message : err));
+            console.log("Failed to load expenses: " + (err instanceof Error ? err.message : err));
+            navigate("/login");
         }
       };
 

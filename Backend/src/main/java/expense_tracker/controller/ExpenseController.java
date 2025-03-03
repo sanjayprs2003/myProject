@@ -1,31 +1,37 @@
 package expense_tracker.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.io.IOError;
 import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Date;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import expense_tracker.model.*;
-import expense_tracker.service.ExpenseService;
-import expense_tracker.utility.JwtUtil;
-import jakarta.annotation.Resource;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.PathResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import expense_tracker.model.IncomeModel;
+import expense_tracker.model.LoginModel;
+import expense_tracker.service.ExpenseService;
+import expense_tracker.utility.JwtUtil;
 
 @RestController
 @RequestMapping({"/api/expenses"})
-@CrossOrigin(origins = "http://localhost:5500")
+@CrossOrigin(origins = "http://localhost:3000")
 
 public class ExpenseController {
     @Autowired
@@ -54,20 +60,32 @@ public class ExpenseController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Object> login(@RequestBody LoginModel login) {
+    public ResponseEntity<Object> login(@RequestBody LoginModel loginModel) {
         try {
-               AuthModel result = service.checkUser(login);
-               Map<String , Object> response = new HashMap<>();
-               response.put("success", true);
-               response.put("token", result.getToken());
-               response.put("userId", result.getUserId());
-               return ResponseEntity.ok().body(response);
-        } catch (IllegalArgumentException e) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            // Call the service method to check user and generate tokens
+            Map<String, Object> jwtModel = service.checkUser(loginModel);
+
+            // Return the response with the generated tokens
+            return ResponseEntity.ok().body(jwtModel);
+        } catch (Exception e) {
+            // If there's an error (like invalid credentials), return an error response
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
         }
+    }
+
+
+    @PostMapping("/refresh-token")
+    public ResponseEntity<Object> refreshToken(@RequestBody Map<String,String> request){
+           Map<String, String> response = new HashMap<>();
+           String accessToken = service.getRefreshToken(request.get("token"));
+           if(accessToken != null) {
+            response.put("token", accessToken);
+            return ResponseEntity.ok().body(response);
+           }
+           return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Error");
     }
 
     @PostMapping("/add-income")
@@ -161,12 +179,19 @@ public class ExpenseController {
 
 
 
-    @PostMapping("/view-category")
+   @PostMapping("/view-category")
     public ResponseEntity<Object> viewCategory(@RequestBody Map<String, Object> requestBody) {
+    try {
         int userId = Integer.parseInt((String) requestBody.get("userId"));
         Set<String> result = service.getCategory(userId);
         return ResponseEntity.ok(result);
+    } catch (NumberFormatException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"message\": \"Invalid User ID format\"}");
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"message\": \"An error occurred: " + e.getMessage() + "\"}");
     }
+}
+
 
     @PostMapping("/view-by-category")
     public ResponseEntity<Object> viewByCategory(@RequestBody Map<String, String> requestBody) {

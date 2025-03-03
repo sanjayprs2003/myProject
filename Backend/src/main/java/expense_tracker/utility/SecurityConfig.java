@@ -38,11 +38,11 @@ public class SecurityConfig implements WebMvcConfigurer {
 
         http.csrf().disable().cors().and()
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/expenses/login", "/api/expenses/add-user")  // Exclude login and registration
-                        .permitAll()  // Allow these endpoints without authentication
-                        .anyRequest().authenticated()  // Require authentication for other endpoints
+                        .requestMatchers("/api/expenses/login", "/api/expenses/add-user","/api/expenses/refresh-token")
+                        .permitAll()
+                        .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class); // Apply JWT filter
+                .addFilterBefore(new JwtFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

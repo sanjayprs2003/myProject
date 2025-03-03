@@ -7,9 +7,9 @@ export namespace LoginInterface {
 
     export interface retrivel {
         userId: string,
-        token: string,
-        message?: string,
-        success?: string
+        accessToken: string,
+        refreshToken: string,
+        success: string
     }
 
     export const name = "login";
