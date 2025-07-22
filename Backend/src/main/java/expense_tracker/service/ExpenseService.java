@@ -4,20 +4,38 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Date;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
-import expense_tracker.model.*;
-import expense_tracker.repository.*;
-import expense_tracker.utility.JwtUtil;
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import expense_tracker.model.AuthModel;
+import expense_tracker.model.CategoriesModel;
+import expense_tracker.model.ExpensesModel;
+import expense_tracker.model.IncomeModel;
+import expense_tracker.model.LoginModel;
+import expense_tracker.model.PhotoModel;
+import expense_tracker.repository.AuthRepository;
+import expense_tracker.repository.CategoriesRepository;
+import expense_tracker.repository.ExpensesRepository;
+import expense_tracker.repository.IncomeRepository;
+import expense_tracker.repository.LoginRepository;
+import expense_tracker.repository.PhotoRepository;
+import expense_tracker.utility.JwtUtil;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 
 @Service
 public class ExpenseService {
@@ -366,38 +384,61 @@ public class ExpenseService {
         }
     }
 
-    public AuthModel checkUser(LoginModel login) {
-        LoginModel storedUser = loginRespo.findByUsernameAndPassword(login.getUsername(), login.getPassword());
-        if (storedUser != null) {
-            AuthModel auth = authRespo.findById(storedUser.getId());
-            if (auth != null) {
-                String token = auth.getToken();
-                if (jwtUtil.isTokenValid(token)) {
-                    return auth;
+    public Map<String, Object> checkUser(LoginModel loginModel) throws Exception {
+        // Check if the user exists with the provided username and password
+        LoginModel existUser = loginRespo.findByUsernameAndPassword(loginModel.getUsername(), loginModel.getPassword());
+        if (existUser != null) {
+            AuthModel jwtModel = authRespo.findById(existUser.getId());
+            String refToken = null;
+
+            if (jwtModel != null) {
+                // If an existing refresh token is found, validate it
+                if (jwtUtil.isTokenValid(jwtModel.getToken())) {
+                    refToken = jwtModel.getToken();
                 } else {
-                    authRespo.delete(auth);
-                    String newToken = jwtUtil.generateToken(storedUser.getUsername(), storedUser.getId());
-                    AuthModel newTokenAuth = new AuthModel(storedUser.getId(), newToken);
-                    authRespo.save(newTokenAuth);
-                    return newTokenAuth;
+                    // If the token is expired, delete it and generate a new one
+                    authRespo.delete(jwtModel);
+                    refToken = jwtUtil.generateRefreshToken(existUser.getUsername());
+                    authRespo.save(new AuthModel(existUser.getId(), refToken));
                 }
             } else {
-                String newToken = jwtUtil.generateToken(storedUser.getUsername(), storedUser.getId());
-                AuthModel newAuthModel = new AuthModel(storedUser.getId(), newToken);
-                authRespo.save(newAuthModel);
-                return newAuthModel;
+                // If no existing token is found, generate a new refresh token
+                logger.info("No existing refresh token found, generating a new one...");
+                refToken = jwtUtil.generateRefreshToken(existUser.getUsername());
+                authRespo.save(new AuthModel(existUser.getId(), refToken));
             }
+
+            // Generate access token
+            String accessToken = jwtUtil.generateToken(existUser.getUsername());
+
+            // Prepare response map with both access and refresh tokens
+            Map<String, Object> tokens = new HashMap<>();
+            tokens.put("success", true);
+            tokens.put("accessToken", accessToken);
+            tokens.put("refreshToken", refToken);
+            tokens.put("userId", existUser.getId());
+
+            return tokens;
         }
-            throw new IllegalArgumentException("Invalid username or password");
+        // If the user is not found, return null or throw exception
+        throw new IllegalArgumentException("Invalid username or password");
+    }
+
+
+    public String getRefreshToken(String token) {
+            if(jwtUtil.isTokenValid(token)){
+                String username = jwtUtil.getUsernameFromToken(token);
+                return jwtUtil.generateToken(username);
+            }
+            return null;
         }
 
 
     public String uploadImage(int userId, MultipartFile photo) throws IOException {
-        try{
+       
             InputStream inputStream = photo.getInputStream();
             String fileName = photo.getOriginalFilename();
             long fileSize = photo.getSize();
-            minioClient.putObject(PutObjectArgs.builder().bucket(bucketName).object(fileName).stream(inputStream, fileSize, -1).build());
             PhotoModel newphoto = new PhotoModel();
             newphoto.setId(userId);
             newphoto.setFileName(fileName);
@@ -406,10 +447,6 @@ public class ExpenseService {
             newphoto.setUploadDate(LocalDateTime.now());
             photoRespo.save(newphoto);
             return fileName;
-        }
-        catch (Exception e) {
-            return "Error uploading file";
-        }
     }
 
 
@@ -423,6 +460,5 @@ public class ExpenseService {
             throw new Exception("Error reading image from MinIO", e);
         }
     }
-
 }
 

@@ -42,10 +42,13 @@ const LoginService = () => {
       const response = await apiService.sendRequest(LoginInterface.name, params, navigate) as LoginInterface.retrivel;
 
       if (response.success) {
-        localStorage.setItem("token", response.token);
-        localStorage.setItem("userId", response.userId);
-        navigate("/homepage");
-      } else {
+          localStorage.setItem("userId", response.userId);
+          localStorage.setItem("token", response.accessToken);
+          localStorage.setItem("refToken",response.refreshToken);
+          navigate("/homepage");
+      } 
+
+      else {
         setError("Error while logging");
       }
 

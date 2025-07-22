@@ -1,15 +1,16 @@
 package expense_tracker.utility;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.ArrayList;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class JwtFilter extends OncePerRequestFilter {
 
@@ -23,15 +24,22 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        if (request.getRequestURI().equals("/api/expenses/login") || request.getRequestURI().equals("/api/expenses/add-user")) {
-            filterChain.doFilter(request, response);
+
+        String requestURI = request.getRequestURI();
+
+        // If the request is for login or add-user, skip token validation
+        if (requestURI.equals("/api/expenses/login") || requestURI.equals("/api/expenses/add-user") || requestURI.equals("/api/expenses/refresh-token")) {
+            filterChain.doFilter(request, response);  // Skip token check for these paths
             return;
         }
+
+
         String token = getJwtFromRequest(request);
+
 
         if (token != null) {
             if (!jwtUtil.isTokenValid(token)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);  // 401 Unauthorized
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("Token is invalid or expired.");
                 return;
             }
