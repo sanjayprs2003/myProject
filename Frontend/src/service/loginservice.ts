@@ -42,6 +42,7 @@ const LoginService = () => {
       const response = await apiService.sendRequest(LoginInterface.name, params, navigate) as LoginInterface.retrivel;
 
       if (response.success) {
+	  localStorage.setName("userId", response.userId);
           localStorage.setItem("userId", response.userId);
           localStorage.setItem("token", response.accessToken);
           localStorage.setItem("refToken",response.refreshToken);
