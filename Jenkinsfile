@@ -1,5 +1,10 @@
 pipeline {
-	agent any 
+	agent any
+
+	options {
+        disableConcurrentBuilds()     // prevent overlapping builds
+        skipDefaultCheckout(false)    // always checkout fresh, even if no new commits
+    }
 
 	stages {
 		stage('Clone Repo') {
