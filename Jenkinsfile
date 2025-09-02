@@ -16,9 +16,7 @@ pipeline {
 		stage('Build Database Image') {
             steps {
                 script {
-                    dir('database') {
-                        sh 'docker build -t my-mysql-db .'
-                    }
+                   sh 'docker build -t my-mysql-db .'
                 }
             }
         }
