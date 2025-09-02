@@ -6,7 +6,7 @@ pipeline {
         stage('Build Database') {
             steps {
                 // Root level DB Dockerfile
-                sh 'docker build -t my-mysql-db -f Dockerfile.db .'  
+                sh 'docker build -t my-mysql-db .'  
             }
         }
 
